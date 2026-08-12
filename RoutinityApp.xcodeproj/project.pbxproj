@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		F4E50DF96E3A23FA2CD1700C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = E05667D6397CB90A1563DA24 /* Supabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		6D09639A302C6921009C14A4 /* RoutinityApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RoutinityApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F4E50DF96E3A23FA2CD1700C /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = RoutinityApp;
 			packageProductDependencies = (
+				E05667D6397CB90A1563DA24 /* Supabase */,
 			);
 			productName = RoutinityApp;
 			productReference = 6D09639A302C6921009C14A4 /* RoutinityApp.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = 6D096391302C6921009C14A4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				99A895A560FBD3D98E634B55 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 6D09639B302C6921009C14A4 /* Products */;
 			projectDirPath = "";
@@ -345,6 +354,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		99A895A560FBD3D98E634B55 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E05667D6397CB90A1563DA24 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 99A895A560FBD3D98E634B55 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 6D096392302C6921009C14A4 /* Project object */;
 }

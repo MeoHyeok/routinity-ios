@@ -1,0 +1,9 @@
+.DS_Store
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.build/
+*.xcworkspace/xcuserdata/
+
+# Local Supabase credentials — copy Secrets.example.plist (repo root) to fill in
+RoutinityApp/Resources/Secrets.plist

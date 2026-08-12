@@ -9,9 +9,13 @@ import SwiftUI
 
 @main
 struct RoutinityAppApp: App {
+    init() {
+        _ = SupabaseManager.client
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
     }
 }
