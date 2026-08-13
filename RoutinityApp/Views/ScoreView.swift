@@ -6,43 +6,37 @@
 import SwiftUI
 
 struct ScoreView: View {
-    let userId: UUID
-
     @StateObject private var viewModel = ScoreViewModel()
 
     var body: some View {
         VStack(spacing: 24) {
             if viewModel.isLoading {
                 ProgressView()
-            } else if let score = viewModel.score {
-                VStack(spacing: 8) {
-                    Text("\(score.score)")
-                        .font(.system(size: 64, weight: .bold))
-                    Text("오늘의 점수")
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(spacing: 4) {
-                    if let wakeScore = score.wakeScore {
-                        HStack {
-                            Text("기상")
-                            Spacer()
-                            Text("\(wakeScore)점")
-                        }
-                    }
-                    if let studyScore = score.studyScore {
-                        HStack {
-                            Text("공부 시간")
-                            Spacer()
-                            Text("\(studyScore)점")
-                        }
-                    }
-                }
-                .padding(.horizontal, 40)
-            } else {
-                Text("목표를 설정하고 오늘 기록을 남기면\n점수가 표시됩니다.")
+            } else if viewModel.scores.isEmpty {
+                Text("목표를 설정하면 오늘의 달성 현황이 표시됩니다.")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(viewModel.scores) { entry in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(Self.displayName(for: entry.targetType))
+                                    .font(.headline)
+                                Spacer()
+                                Text(Self.statusText(entry.status))
+                                    .font(.subheadline)
+                                    .foregroundStyle(Self.statusColor(entry.status))
+                            }
+                            Text("목표 \(entry.targetValue) · 실제 \(entry.actualValue ?? "-")")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+                .padding(.horizontal)
             }
 
             if let errorMessage = viewModel.errorMessage {
@@ -52,20 +46,44 @@ struct ScoreView: View {
             }
 
             Button("새로고침") {
-                Task { await viewModel.refreshTodayScore(userId: userId) }
+                Task { await viewModel.refreshTodayScore() }
             }
             .disabled(viewModel.isLoading)
         }
         .padding()
         .navigationTitle("오늘 점수")
         .task {
-            await viewModel.refreshTodayScore(userId: userId)
+            await viewModel.refreshTodayScore()
+        }
+    }
+
+    private static func displayName(for targetType: String) -> String {
+        switch targetType {
+        case GoalTargetType.wakeTime: return "기상"
+        case GoalTargetType.studyDuration: return "공부 시간"
+        default: return targetType
+        }
+    }
+
+    private static func statusText(_ status: ScoreEntry.Status) -> String {
+        switch status {
+        case .achieved: return "달성"
+        case .notAchieved: return "미달성"
+        case .missing: return "기록 없음"
+        }
+    }
+
+    private static func statusColor(_ status: ScoreEntry.Status) -> Color {
+        switch status {
+        case .achieved: return .green
+        case .notAchieved: return .red
+        case .missing: return .secondary
         }
     }
 }
 
 #Preview {
     NavigationStack {
-        ScoreView(userId: UUID())
+        ScoreView()
     }
 }

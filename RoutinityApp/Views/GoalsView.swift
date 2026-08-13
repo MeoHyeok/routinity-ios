@@ -6,8 +6,6 @@
 import SwiftUI
 
 struct GoalsView: View {
-    let userId: UUID
-
     @StateObject private var viewModel = GoalsViewModel()
 
     var body: some View {
@@ -36,7 +34,7 @@ struct GoalsView: View {
             }
 
             Button {
-                Task { await viewModel.save(userId: userId) }
+                Task { await viewModel.save() }
             } label: {
                 if viewModel.isSaving {
                     ProgressView()
@@ -50,7 +48,7 @@ struct GoalsView: View {
         }
         .navigationTitle("목표 설정")
         .task {
-            await viewModel.loadGoals(userId: userId)
+            await viewModel.loadGoals()
         }
         .overlay {
             if viewModel.isLoading {
@@ -62,6 +60,6 @@ struct GoalsView: View {
 
 #Preview {
     NavigationStack {
-        GoalsView(userId: UUID())
+        GoalsView()
     }
 }

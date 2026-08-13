@@ -6,8 +6,6 @@
 import SwiftUI
 
 struct TimelineView: View {
-    let userId: UUID
-
     @StateObject private var logsViewModel = LogsViewModel()
     @State private var selectedDate = Date()
 
@@ -37,7 +35,7 @@ struct TimelineView: View {
                         Image(systemName: log.type.symbolName)
                         Text(log.type.displayName)
                         Spacer()
-                        Text(log.loggedAt, style: .time)
+                        Text(log.timestamp, style: .time)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -46,13 +44,13 @@ struct TimelineView: View {
         }
         .navigationTitle("타임라인")
         .task(id: selectedDate) {
-            await logsViewModel.loadLogs(on: selectedDate, userId: userId)
+            await logsViewModel.loadLogs(on: selectedDate)
         }
     }
 }
 
 #Preview {
     NavigationStack {
-        TimelineView(userId: UUID())
+        TimelineView()
     }
 }

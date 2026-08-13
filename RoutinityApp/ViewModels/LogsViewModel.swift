@@ -15,44 +15,44 @@ final class LogsViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let client = SupabaseManager.client
+    private static let isoFormatter = ISO8601DateFormatter()
 
-    func recordLog(type: LogEntry.LogType, userId: UUID) async {
+    private static let dateKeyFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        return formatter
+    }()
+
+    func recordLog(type: LogEntry.LogType) async {
         errorMessage = nil
         isRecording = type
         defer { isRecording = nil }
 
         do {
-            try await client
-                .from("logs")
-                .insert(NewLogEntry(userId: userId, type: type.rawValue))
-                .execute()
-            await loadLogs(on: Date(), userId: userId)
+            let request = NewLogRequest(type: type.rawValue, timestamp: Self.isoFormatter.string(from: Date()))
+            let _: LogEntry = try await client.functions.invoke("logs", options: .init(body: request))
+            await loadLogs(on: Date())
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyErrorMessage(error)
         }
     }
 
-    func loadLogs(on date: Date, userId: UUID) async {
+    func loadLogs(on date: Date) async {
         errorMessage = nil
         isLoading = true
         defer { isLoading = false }
 
         do {
-            let calendar = Calendar.current
-            let startOfDay = calendar.startOfDay(for: date)
-            let startOfNextDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay.addingTimeInterval(86400)
-            let logs: [LogEntry] = try await client
-                .from("logs")
-                .select()
-                .eq("user_id", value: userId)
-                .gte("logged_at", value: startOfDay)
-                .lt("logged_at", value: startOfNextDay)
-                .order("logged_at", ascending: false)
-                .execute()
-                .value
+            let dateKey = Self.dateKeyFormatter.string(from: date)
+            let logs: [LogEntry] = try await client.functions.invoke(
+                "logs",
+                options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
+            )
             self.logs = logs
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyErrorMessage(error)
         }
     }
 }

@@ -5,38 +5,28 @@
 
 import Foundation
 
-struct Score: Identifiable, Codable, Hashable {
-    let id: UUID
-    let userId: UUID
-    let scoreDate: String
-    let score: Int
-    let wakeScore: Int?
-    let studyScore: Int?
-    let updatedAt: Date
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case userId = "user_id"
-        case scoreDate = "score_date"
-        case score
-        case wakeScore = "wake_score"
-        case studyScore = "study_score"
-        case updatedAt = "updated_at"
-    }
+struct ScoresResponse: Decodable {
+    let date: String
+    let scores: [ScoreEntry]
 }
 
-struct ScoreUpsert: Encodable {
-    let userId: UUID
-    let scoreDate: String
-    let score: Int
-    let wakeScore: Int?
-    let studyScore: Int?
+struct ScoreEntry: Identifiable, Decodable, Hashable {
+    enum Status: String, Decodable {
+        case achieved
+        case notAchieved = "not_achieved"
+        case missing
+    }
+
+    var id: String { targetType }
+    let targetType: String
+    let targetValue: String
+    let actualValue: String?
+    let status: Status
 
     enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case scoreDate = "score_date"
-        case score
-        case wakeScore = "wake_score"
-        case studyScore = "study_score"
+        case targetType = "target_type"
+        case targetValue = "target_value"
+        case actualValue = "actual_value"
+        case status
     }
 }

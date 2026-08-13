@@ -3,7 +3,6 @@
 //  RoutinityApp
 //
 
-import Auth
 import SwiftUI
 
 struct HomeView: View {
@@ -12,16 +11,13 @@ struct HomeView: View {
 
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
-    private var userId: UUID? { authViewModel.session?.user.id }
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
                 LazyVGrid(columns: columns, spacing: 16) {
                     ForEach(LogEntry.LogType.allCases, id: \.self) { type in
                         Button {
-                            guard let userId else { return }
-                            Task { await logsViewModel.recordLog(type: type, userId: userId) }
+                            Task { await logsViewModel.recordLog(type: type) }
                         } label: {
                             VStack(spacing: 8) {
                                 if logsViewModel.isRecording == type {
@@ -46,18 +42,20 @@ struct HomeView: View {
                         .foregroundStyle(.red)
                 }
 
-                if let userId {
-                    NavigationLink("오늘 타임라인 보기") {
-                        TimelineView(userId: userId)
-                    }
+                NavigationLink("오늘 타임라인 보기") {
+                    TimelineView()
+                }
 
-                    NavigationLink("목표 설정") {
-                        GoalsView(userId: userId)
-                    }
+                NavigationLink("목표 설정") {
+                    GoalsView()
+                }
 
-                    NavigationLink("오늘 점수") {
-                        ScoreView(userId: userId)
-                    }
+                NavigationLink("오늘 점수") {
+                    ScoreView()
+                }
+
+                NavigationLink("주간 리포트") {
+                    WeeklyReportView()
                 }
 
                 Spacer()

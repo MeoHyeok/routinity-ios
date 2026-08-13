@@ -17,29 +17,23 @@ final class GoalsViewModel: ObservableObject {
     @Published var savedMessage: String?
 
     private let client = SupabaseManager.client
-    private var goalsByType: [Goal.TargetType: Goal] = [:]
 
-    func loadGoals(userId: UUID) async {
+    func loadGoals() async {
         errorMessage = nil
         isLoading = true
         defer { isLoading = false }
 
         do {
-            let goals: [Goal] = try await client
-                .from("goals")
-                .select()
-                .eq("user_id", value: userId)
-                .execute()
-                .value
-            goalsByType = Dictionary(uniqueKeysWithValues: goals.map { ($0.targetType, $0) })
-            wakeTime = goalsByType[.wake]?.targetValue ?? ""
-            studyMinutes = goalsByType[.studyMinutes]?.targetValue ?? ""
+            let goals: [Goal] = try await client.functions.invoke("goals", options: .init(method: .get))
+            let goalsByType = Dictionary(uniqueKeysWithValues: goals.map { ($0.targetType, $0) })
+            wakeTime = goalsByType[GoalTargetType.wakeTime]?.targetValue ?? ""
+            studyMinutes = goalsByType[GoalTargetType.studyDuration]?.targetValue ?? ""
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyErrorMessage(error)
         }
     }
 
-    func save(userId: UUID) async {
+    func save() async {
         errorMessage = nil
         savedMessage = nil
         isSaving = true
@@ -47,39 +41,28 @@ final class GoalsViewModel: ObservableObject {
 
         var saveError: Error?
         do {
-            try await upsert(type: .wake, value: wakeTime, userId: userId)
-            try await upsert(type: .studyMinutes, value: studyMinutes, userId: userId)
+            try await upsert(type: GoalTargetType.wakeTime, value: wakeTime)
+            try await upsert(type: GoalTargetType.studyDuration, value: studyMinutes)
         } catch {
             saveError = error
         }
 
-        // Re-sync from the DB regardless of success/failure so the UI (and the
-        // insert-vs-update cache below) never drifts from what's actually saved,
-        // even if one of the two upserts above failed partway through. This also
-        // resets errorMessage, so re-apply the save error (if any) after it runs.
-        await loadGoals(userId: userId)
+        // Re-sync from the server regardless of success/failure so the UI never drifts from
+        // what's actually saved, even if one of the two upserts above failed partway through.
+        // This also resets errorMessage, so re-apply the save error (if any) after it runs.
+        await loadGoals()
 
         if let saveError {
-            errorMessage = saveError.localizedDescription
+            errorMessage = friendlyErrorMessage(saveError)
         } else {
             savedMessage = "저장되었습니다."
         }
     }
 
-    private func upsert(type: Goal.TargetType, value: String, userId: UUID) async throws {
+    private func upsert(type: String, value: String) async throws {
         guard !value.isEmpty else { return }
 
-        if let existing = goalsByType[type] {
-            try await client
-                .from("goals")
-                .update(GoalUpdate(targetValue: value, updatedAt: Date()))
-                .eq("id", value: existing.id)
-                .execute()
-        } else {
-            try await client
-                .from("goals")
-                .insert(NewGoal(userId: userId, targetType: type.rawValue, targetValue: value))
-                .execute()
-        }
+        let request = GoalUpsertRequest(targetType: type, targetValue: value)
+        let _: Goal = try await client.functions.invoke("goals", options: .init(body: request))
     }
 }

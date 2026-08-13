@@ -32,24 +32,19 @@ struct LogEntry: Identifiable, Codable, Hashable {
     }
 
     let id: UUID
-    let userId: UUID
     let type: LogType
-    let loggedAt: Date
+    let timestamp: Date
+    let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id
-        case userId = "user_id"
         case type
-        case loggedAt = "logged_at"
+        case timestamp
+        case createdAt = "created_at"
     }
 }
 
-struct NewLogEntry: Encodable {
-    let userId: UUID
+struct NewLogRequest: Encodable {
     let type: String
-
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case type
-    }
+    let timestamp: String
 }
