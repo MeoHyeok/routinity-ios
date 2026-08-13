@@ -9,7 +9,14 @@ import Supabase
 enum SupabaseManager {
     static let client: SupabaseClient = {
         let (url, anonKey) = loadCredentials()
-        return SupabaseClient(supabaseURL: url, supabaseKey: anonKey)
+        // `FunctionsClient` defaults to a plain `JSONDecoder()`, which can't parse the
+        // ISO-8601-with-fractional-seconds timestamps our edge functions return (e.g.
+        // `updated_at`/`created_at`), so every response containing a `Date` field fails to
+        // decode. Reuse the decoder `PostgrestClient` already ships with proper ISO-8601 support.
+        let options = SupabaseClientOptions(
+            functions: .init(decoder: PostgrestClient.Configuration.jsonDecoder)
+        )
+        return SupabaseClient(supabaseURL: url, supabaseKey: anonKey, options: options)
     }()
 
     private static let placeholderURLString = "https://YOUR_PROJECT_REF.supabase.co"
