@@ -17,6 +17,17 @@ struct ScoreView: View {
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
             } else {
+                if let dailyScore = viewModel.dailyScore {
+                    VStack(spacing: 4) {
+                        Text("\(dailyScore)")
+                            .font(.system(size: 64, weight: .bold, design: .rounded))
+                            .foregroundStyle(Self.scoreColor(dailyScore))
+                        Text("오늘의 루틴 점수")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 VStack(spacing: 12) {
                     ForEach(viewModel.scores) { entry in
                         VStack(alignment: .leading, spacing: 4) {
@@ -70,6 +81,14 @@ struct ScoreView: View {
         case .achieved: return "달성"
         case .notAchieved: return "미달성"
         case .missing: return "기록 없음"
+        }
+    }
+
+    private static func scoreColor(_ score: Int) -> Color {
+        switch score {
+        case 70...100: return .green
+        case 40..<70: return .orange
+        default: return .red
         }
     }
 

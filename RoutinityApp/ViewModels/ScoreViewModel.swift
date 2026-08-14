@@ -10,6 +10,7 @@ import Supabase
 @MainActor
 final class ScoreViewModel: ObservableObject {
     @Published private(set) var scores: [ScoreEntry] = []
+    @Published private(set) var dailyScore: Int?
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
@@ -35,6 +36,7 @@ final class ScoreViewModel: ObservableObject {
                 options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
             )
             scores = response.scores
+            dailyScore = response.dailyScore
         } catch {
             errorMessage = friendlyErrorMessage(error)
         }

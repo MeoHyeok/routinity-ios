@@ -7,7 +7,14 @@ import Foundation
 
 struct ScoresResponse: Decodable {
     let date: String
+    let dailyScore: Int?
     let scores: [ScoreEntry]
+
+    enum CodingKeys: String, CodingKey {
+        case date
+        case dailyScore = "daily_score"
+        case scores
+    }
 }
 
 struct ScoreEntry: Identifiable, Decodable, Hashable {
