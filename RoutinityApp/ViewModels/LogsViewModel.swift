@@ -39,6 +39,20 @@ final class LogsViewModel: ObservableObject {
         }
     }
 
+    func deleteLog(id: UUID) async {
+        errorMessage = nil
+
+        do {
+            try await client.functions.invoke(
+                "logs",
+                options: .init(method: .delete, query: [URLQueryItem(name: "id", value: id.uuidString)])
+            )
+            logs.removeAll { $0.id == id }
+        } catch {
+            errorMessage = friendlyErrorMessage(error)
+        }
+    }
+
     func loadLogs(on date: Date) async {
         errorMessage = nil
         isLoading = true

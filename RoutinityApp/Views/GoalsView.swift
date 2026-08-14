@@ -14,11 +14,23 @@ struct GoalsView: View {
                 TextField("HH:mm", text: $viewModel.wakeTime)
                     .keyboardType(.numbersAndPunctuation)
                     .autocapitalization(.none)
+
+                if !viewModel.wakeTime.isEmpty {
+                    Button("목표 삭제", role: .destructive) {
+                        Task { await viewModel.deleteGoal(type: GoalTargetType.wakeTime) }
+                    }
+                }
             }
 
             Section("공부 시간 목표 (분)") {
                 TextField("예: 120", text: $viewModel.studyMinutes)
                     .keyboardType(.numberPad)
+
+                if !viewModel.studyMinutes.isEmpty {
+                    Button("목표 삭제", role: .destructive) {
+                        Task { await viewModel.deleteGoal(type: GoalTargetType.studyDuration) }
+                    }
+                }
             }
 
             if let errorMessage = viewModel.errorMessage {

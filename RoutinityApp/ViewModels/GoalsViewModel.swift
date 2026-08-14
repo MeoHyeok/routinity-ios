@@ -59,6 +59,28 @@ final class GoalsViewModel: ObservableObject {
         }
     }
 
+    func deleteGoal(type: String) async {
+        errorMessage = nil
+        savedMessage = nil
+
+        do {
+            try await client.functions.invoke(
+                "goals",
+                options: .init(method: .delete, query: [URLQueryItem(name: "target_type", value: type)])
+            )
+            switch type {
+            case GoalTargetType.wakeTime:
+                wakeTime = ""
+            case GoalTargetType.studyDuration:
+                studyMinutes = ""
+            default:
+                break
+            }
+        } catch {
+            errorMessage = friendlyErrorMessage(error)
+        }
+    }
+
     private func upsert(type: String, value: String) async throws {
         guard !value.isEmpty else { return }
 

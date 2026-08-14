@@ -38,6 +38,11 @@ struct TimelineView: View {
                         Text(log.timestamp, style: .time)
                             .foregroundStyle(.secondary)
                     }
+                    .swipeActions {
+                        Button("삭제", role: .destructive) {
+                            Task { await logsViewModel.deleteLog(id: log.id) }
+                        }
+                    }
                 }
                 .listStyle(.plain)
             }
