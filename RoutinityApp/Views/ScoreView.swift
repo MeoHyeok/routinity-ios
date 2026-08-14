@@ -86,8 +86,8 @@ struct ScoreView: View {
 
     private static func scoreColor(_ score: Int) -> Color {
         switch score {
-        case 70...100: return .green
-        case 40..<70: return .orange
+        case 80...100: return .green
+        case 50..<80: return .orange
         default: return .red
         }
     }
