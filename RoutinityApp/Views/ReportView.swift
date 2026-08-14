@@ -1,11 +1,13 @@
 //
-//  WeeklyReportView.swift
+//  ReportView.swift
 //  RoutinityApp
 //
 
 import SwiftUI
 
-struct WeeklyReportView: View {
+struct ReportView: View {
+    let period: ReportPeriod
+
     @StateObject private var viewModel = ReportViewModel()
 
     var body: some View {
@@ -39,15 +41,15 @@ struct WeeklyReportView: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .navigationTitle("주간 리포트")
+        .navigationTitle(period.navigationTitle)
         .task {
-            await viewModel.loadWeeklyReport()
+            await viewModel.loadReport(period: period)
         }
     }
 }
 
 #Preview {
     NavigationStack {
-        WeeklyReportView()
+        ReportView(period: .weekly)
     }
 }

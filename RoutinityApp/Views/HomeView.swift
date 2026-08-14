@@ -54,8 +54,12 @@ struct HomeView: View {
                     ScoreView()
                 }
 
+                NavigationLink("오늘 리포트") {
+                    ReportView(period: .daily)
+                }
+
                 NavigationLink("주간 리포트") {
-                    WeeklyReportView()
+                    ReportView(period: .weekly)
                 }
 
                 Spacer()
