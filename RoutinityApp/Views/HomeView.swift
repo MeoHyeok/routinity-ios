@@ -62,6 +62,10 @@ struct HomeView: View {
                     ReportView(period: .weekly)
                 }
 
+                NavigationLink("월간 리포트") {
+                    ReportView(period: .monthly)
+                }
+
                 NavigationLink("패턴 분석") {
                     InsightsView()
                 }

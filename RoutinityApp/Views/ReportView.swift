@@ -17,6 +17,12 @@ struct ReportView: View {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                 } else if let report = viewModel.report {
+                    if let dateRange = report.dateRange {
+                        Text("\(dateRange.from) ~ \(dateRange.to)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
                     Text(report.content)
                         .font(.body)
                         .fixedSize(horizontal: false, vertical: true)

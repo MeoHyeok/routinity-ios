@@ -6,11 +6,6 @@
 import Foundation
 
 struct Insights: Decodable {
-    struct DateRange: Decodable {
-        let from: String
-        let to: String
-    }
-
     struct WeekdayAverage: Decodable, Identifiable {
         let weekday: Int
         let label: String
