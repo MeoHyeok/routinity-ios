@@ -23,7 +23,11 @@ struct InsightsView: View {
                         trendCard(trend)
                     }
 
-                    if let best = insights.bestWeekday, let worst = insights.worstWeekday {
+                    // Best/worst are the same day when there's only one weekday with data yet,
+                    // which reads as a mistake ("best: 금, worst: 금") rather than a comparison —
+                    // only show the pair once there's actually more than one day to compare.
+                    if insights.weekdayAverages.count > 1,
+                       let best = insights.bestWeekday, let worst = insights.worstWeekday {
                         HStack(spacing: 12) {
                             weekdaySummaryCard(title: "가장 좋은 요일", summary: best, color: .green)
                             weekdaySummaryCard(title: "가장 아쉬운 요일", summary: worst, color: .red)
@@ -36,7 +40,8 @@ struct InsightsView: View {
                             .foregroundStyle(.secondary)
                     } else {
                         VStack(spacing: 8) {
-                            ForEach(insights.weekdayAverages.sorted { $0.weekday < $1.weekday }) { average in
+                            // Server's weekday is 0(일)~6(토); rotate so the week reads 월~일.
+                            ForEach(insights.weekdayAverages.sorted { ($0.weekday + 6) % 7 < ($1.weekday + 6) % 7 }) { average in
                                 HStack {
                                     Text(average.label)
                                         .font(.headline)

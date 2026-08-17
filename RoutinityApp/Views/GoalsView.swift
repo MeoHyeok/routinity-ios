@@ -15,7 +15,7 @@ struct GoalsView: View {
                     .keyboardType(.numbersAndPunctuation)
                     .autocapitalization(.none)
 
-                if !viewModel.wakeTime.isEmpty {
+                if viewModel.hasWakeGoal {
                     Button("목표 삭제", role: .destructive) {
                         Task { await viewModel.deleteGoal(type: GoalTargetType.wakeTime) }
                     }
@@ -26,7 +26,7 @@ struct GoalsView: View {
                 TextField("예: 120", text: $viewModel.studyMinutes)
                     .keyboardType(.numberPad)
 
-                if !viewModel.studyMinutes.isEmpty {
+                if viewModel.hasStudyGoal {
                     Button("목표 삭제", role: .destructive) {
                         Task { await viewModel.deleteGoal(type: GoalTargetType.studyDuration) }
                     }

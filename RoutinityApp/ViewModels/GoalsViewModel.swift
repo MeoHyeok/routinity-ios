@@ -11,6 +11,11 @@ import Supabase
 final class GoalsViewModel: ObservableObject {
     @Published var wakeTime = ""
     @Published var studyMinutes = ""
+    /// Whether each field currently reflects a goal that's actually persisted on the server,
+    /// as opposed to text the user is mid-typing. Drives whether "delete" is offered — deleting
+    /// unsaved text would just 404 ("goal not found") since there's nothing to delete yet.
+    @Published private(set) var hasWakeGoal = false
+    @Published private(set) var hasStudyGoal = false
     @Published private(set) var isLoading = false
     @Published private(set) var isSaving = false
     @Published var errorMessage: String?
@@ -28,6 +33,8 @@ final class GoalsViewModel: ObservableObject {
             let goalsByType = Dictionary(uniqueKeysWithValues: goals.map { ($0.targetType, $0) })
             wakeTime = goalsByType[GoalTargetType.wakeTime]?.targetValue ?? ""
             studyMinutes = goalsByType[GoalTargetType.studyDuration]?.targetValue ?? ""
+            hasWakeGoal = goalsByType[GoalTargetType.wakeTime] != nil
+            hasStudyGoal = goalsByType[GoalTargetType.studyDuration] != nil
         } catch {
             errorMessage = friendlyErrorMessage(error)
         }
@@ -71,8 +78,10 @@ final class GoalsViewModel: ObservableObject {
             switch type {
             case GoalTargetType.wakeTime:
                 wakeTime = ""
+                hasWakeGoal = false
             case GoalTargetType.studyDuration:
                 studyMinutes = ""
+                hasStudyGoal = false
             default:
                 break
             }
