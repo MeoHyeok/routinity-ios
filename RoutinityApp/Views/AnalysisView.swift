@@ -36,6 +36,69 @@ struct AnalysisView: View {
         return Int(Double(scored.reduce(0, +)) / Double(scored.count).rounded())
     }
 
+    private static func minutesFromTimeString(_ value: String) -> Int? {
+        let parts = value.split(separator: ":")
+        guard parts.count == 2, let hour = Int(parts[0]), let minute = Int(parts[1]) else { return nil }
+        return hour * 60 + minute
+    }
+
+    private static func timeString(fromMinutes minutes: Int) -> String {
+        let normalized = ((minutes % 1440) + 1440) % 1440
+        return String(format: "%02d:%02d", normalized / 60, normalized % 60)
+    }
+
+    /// The recent actual average, not the goal itself — used to ground a suggested new target
+    /// in what the user is really doing, rather than guessing at an arbitrary adjustment.
+    private var averageActualWakeMinutes: Int? {
+        let values = trendViewModel.points
+            .compactMap { $0.entry(for: GoalTargetType.wakeTime)?.actualValue }
+            .compactMap { Self.minutesFromTimeString($0) }
+        guard values.count >= 3 else { return nil }
+        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
+    }
+
+    private var averageActualStudyMinutes: Int? {
+        let values = trendViewModel.points
+            .compactMap { $0.entry(for: GoalTargetType.studyDuration)?.actualValue }
+            .compactMap { Int($0) }
+        guard values.count >= 3 else { return nil }
+        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
+    }
+
+    private struct GoalSuggestion {
+        let lossTitle: String
+        let missRate: Double
+        let suggestedLabel: String
+        let suggestedWakeTime: String?
+        let suggestedStudyMinutes: String?
+    }
+
+    /// Turns "루틴 로스 분석" from a stat into an action: picks whichever of 기상/공부 is missed
+    /// most often, and — only once there's enough real data to ground it — proposes the recent
+    /// actual average as a more achievable next target, with a direct path into 목표 설정.
+    /// Meal irregularity has no goal type to adjust, so it never produces a suggestion here.
+    private var goalSuggestion: GoalSuggestion? {
+        let wakeMissRate = trendViewModel.missRate(for: GoalTargetType.wakeTime) ?? 0
+        let studyMissRate = trendViewModel.missRate(for: GoalTargetType.studyDuration) ?? 0
+        let missRate = max(wakeMissRate, studyMissRate)
+        guard missRate >= 0.3 else { return nil }
+
+        if wakeMissRate >= studyMissRate {
+            guard let minutes = averageActualWakeMinutes else { return nil }
+            let label = Self.timeString(fromMinutes: minutes)
+            return GoalSuggestion(
+                lossTitle: "기상 지연", missRate: wakeMissRate, suggestedLabel: label,
+                suggestedWakeTime: label, suggestedStudyMinutes: nil
+            )
+        } else {
+            guard let minutes = averageActualStudyMinutes, minutes > 0 else { return nil }
+            return GoalSuggestion(
+                lossTitle: "공부 시간 부족", missRate: studyMissRate, suggestedLabel: "\(minutes)분",
+                suggestedWakeTime: nil, suggestedStudyMinutes: "\(minutes)"
+            )
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -57,6 +120,7 @@ struct AnalysisView: View {
                         studyBarChartCard
                         bestWorstWeekdayRow
                         lossAnalysisCard
+                        goalSuggestionCard
                     }
 
                     if let errorMessage = trendViewModel.errorMessage {
@@ -121,15 +185,25 @@ struct AnalysisView: View {
         return Int(((1 - missRate) * 100).rounded())
     }
 
+    /// Surfaces the recent-vs-previous-7-day delta explicitly (not just a direction arrow) so a
+    /// glance answers "better or worse than before, and by how much" — the raw numbers already
+    /// come back from /insights, this just stops burying the comparison behind the average alone.
     private func trendBadge(_ trend: Insights.Trend) -> some View {
+        let delta = trend.recentAvg - trend.previousAvg
         let symbol = trend.direction == "up" ? "arrow.up.right" : (trend.direction == "down" ? "arrow.down.right" : "arrow.right")
         let color: Color = trend.direction == "up" ? .routinityGreen : (trend.direction == "down" ? .routinityPink : .secondary)
-        return HStack(spacing: 4) {
-            Image(systemName: symbol)
-            Text("최근 7일 \(trend.recentAvg)점")
+        let deltaText = delta == 0 ? "지난 7일과 동일" : "지난 7일 대비 \(delta > 0 ? "+" : "")\(delta)점"
+        return VStack(alignment: .trailing, spacing: 2) {
+            HStack(spacing: 4) {
+                Image(systemName: symbol)
+                Text("최근 7일 \(trend.recentAvg)점")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(color)
+            Text(deltaText)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(color)
     }
 
     private func progressRow(title: String, value: Int, color: Color) -> some View {
@@ -300,6 +374,32 @@ struct AnalysisView: View {
                 }
                 .frame(height: 8)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var goalSuggestionCard: some View {
+        if let suggestion = goalSuggestion {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundStyle(Color.routinityOrange)
+                    Text("목표 제안")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                }
+                Text("\(suggestion.lossTitle)이 최근 \(Int((suggestion.missRate * 100).rounded()))%로 잦아요. 최근 실제 평균에 맞춰 목표를 \(suggestion.suggestedLabel)로 조정해보는 건 어떨까요?")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                NavigationLink {
+                    GoalsView(suggestedWakeTime: suggestion.suggestedWakeTime, suggestedStudyMinutes: suggestion.suggestedStudyMinutes)
+                } label: {
+                    Text("목표 조정하러 가기")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.routinityViolet)
+                }
+            }
+            .routinityCard(glow: true)
         }
     }
 }

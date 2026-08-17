@@ -7,10 +7,20 @@ import SwiftUI
 
 struct GoalsView: View {
     @StateObject private var viewModel = GoalsViewModel()
+    /// Set when arriving from the 분석 탭's 로스 분석 제안 — a target the recent actual average
+    /// suggests, shown as a tappable pill rather than pre-filled directly, so applying it is
+    /// still an explicit choice and doesn't silently overwrite an existing goal on screen.
+    var suggestedWakeTime: String? = nil
+    var suggestedStudyMinutes: String? = nil
+
+    private static let starterWakeTime = "07:00"
+    private static let starterStudyMinutes = "120"
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                starterRoutineCard
+
                 goalCard(
                     title: "기상 목표",
                     hint: "예: 07:00",
@@ -20,6 +30,9 @@ struct GoalsView: View {
                         .keyboardType(.numbersAndPunctuation)
                         .autocapitalization(.none)
                         .routinityFieldStyle()
+                    if let suggestedWakeTime {
+                        suggestionPill(value: suggestedWakeTime) { viewModel.wakeTime = suggestedWakeTime }
+                    }
                 } onDelete: {
                     Task { await viewModel.deleteGoal(type: GoalTargetType.wakeTime) }
                 }
@@ -32,6 +45,9 @@ struct GoalsView: View {
                     TextField("예: 120", text: $viewModel.studyMinutes)
                         .keyboardType(.numberPad)
                         .routinityFieldStyle()
+                    if let suggestedStudyMinutes {
+                        suggestionPill(value: "\(suggestedStudyMinutes)분") { viewModel.studyMinutes = suggestedStudyMinutes }
+                    }
                 } onDelete: {
                     Task { await viewModel.deleteGoal(type: GoalTargetType.studyDuration) }
                 }
@@ -107,6 +123,50 @@ struct GoalsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .routinityCard()
+    }
+
+    /// Shown only for genuinely new users (no goal of either type ever set) — proposes a
+    /// reasonable default rather than leaving them to guess starting numbers on a blank form,
+    /// which is the actual gap between "여기서 로스가 나요" analytics and "루틴을 세워주는" onboarding.
+    @ViewBuilder
+    private var starterRoutineCard: some View {
+        if !viewModel.isLoading && !viewModel.hasWakeGoal && !viewModel.hasStudyGoal {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(systemName: "wand.and.stars")
+                        .foregroundStyle(Color.routinityCyan)
+                    Text("아직 설정한 루틴이 없어요")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                }
+                Text("기상 \(Self.starterWakeTime) · 공부 \(Self.starterStudyMinutes)분으로 가볍게 시작해보세요. 나중에 언제든 조정할 수 있어요.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button {
+                    viewModel.wakeTime = Self.starterWakeTime
+                    viewModel.studyMinutes = Self.starterStudyMinutes
+                } label: {
+                    Text("이 루틴으로 시작하기")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.routinityViolet)
+                }
+            }
+            .routinityCard(glow: true)
+        }
+    }
+
+    private func suggestionPill(value: String, apply: @escaping () -> Void) -> some View {
+        Button(action: apply) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                Text("제안: \(value)")
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color.routinityViolet)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.routinityViolet.opacity(0.12), in: Capsule())
+        }
     }
 }
 

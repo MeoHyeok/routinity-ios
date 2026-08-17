@@ -48,6 +48,21 @@ struct TodayView: View {
         logsViewModel.logs.filter { $0.type == .mealEnd }.count
     }
 
+    /// Average daily_score over the streak window excluding today (streakViewModel.points is
+    /// sorted ascending, so today is always the last point) — gives a personal baseline to
+    /// compare today's score against, Apple Watch sleep-score style, rather than only judging
+    /// against the fixed goal-based score.
+    private var personalAverageScore: Int? {
+        let priorScores = streakViewModel.points.dropLast().compactMap { $0.dailyScore }
+        guard !priorScores.isEmpty else { return nil }
+        return Int((Double(priorScores.reduce(0, +)) / Double(priorScores.count)).rounded())
+    }
+
+    private var personalScoreDelta: Int? {
+        guard let today = scoreViewModel.dailyScore, let baseline = personalAverageScore else { return nil }
+        return today - baseline
+    }
+
     /// The timestamp of a start-type log that hasn't been closed by its matching end-type log
     /// yet today — walks logs in order rather than just comparing counts, so a resumed session
     /// always counts from the real open start, not "now". Used for all three start/end pairs
@@ -175,6 +190,11 @@ struct TodayView: View {
                     Text("TODAY")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
+                    if let delta = personalScoreDelta {
+                        Text(delta == 0 ? "평소와 비슷" : "평소보다 \(delta > 0 ? "+" : "")\(delta)")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(delta > 0 ? Color.routinityGreen : (delta < 0 ? Color.routinityPink : Color.secondary))
+                    }
                 }
             }
             .frame(width: 132, height: 132)
@@ -368,6 +388,10 @@ private struct SleepReportSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .routinityCard()
+
+                        if let suggestedAction = viewModel.report?.suggestedAction {
+                            SuggestedActionCard(action: suggestedAction)
+                        }
 
                         if let breakdown = viewModel.report?.timeBreakdown {
                             TimeBreakdownChart(breakdown: breakdown)

@@ -55,6 +55,10 @@ struct AICoachView: View {
                         }
                         .routinityCard(glow: true)
 
+                        if let suggestedAction = report.suggestedAction {
+                            SuggestedActionCard(action: suggestedAction)
+                        }
+
                         if let breakdown = report.timeBreakdown {
                             TimeBreakdownChart(breakdown: breakdown)
                         }

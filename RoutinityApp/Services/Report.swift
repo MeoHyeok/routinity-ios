@@ -54,6 +54,10 @@ struct Report: Decodable {
     let cached: Bool
     let generatedVia: String?
     let timeBreakdown: TimeBreakdown?
+    /// A single concrete next step targeting the user's biggest current loss, e.g. "공부 시간이
+    /// 목표보다 30분 부족했어요. 내일은...". nil when there's nothing to flag (no scorable goal,
+    /// or everything's already achieved) — same convention as timeBreakdown being nil.
+    let suggestedAction: String?
 
     enum CodingKeys: String, CodingKey {
         case period
@@ -63,5 +67,6 @@ struct Report: Decodable {
         case cached
         case generatedVia = "generated_via"
         case timeBreakdown = "time_breakdown"
+        case suggestedAction = "suggested_action"
     }
 }
