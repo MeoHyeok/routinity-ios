@@ -30,12 +30,38 @@ final class LogsViewModel: ObservableObject {
         isRecording = type
         defer { isRecording = nil }
 
+        let request = NewLogRequest(type: type.rawValue, timestamp: Self.isoFormatter.string(from: Date()))
+
         do {
-            let request = NewLogRequest(type: type.rawValue, timestamp: Self.isoFormatter.string(from: Date()))
             let _: LogEntry = try await client.functions.invoke("logs", options: .init(body: request))
             await loadLogs(on: Date())
         } catch {
-            errorMessage = friendlyErrorMessage(error)
+            // Edge Functions cold-start after a few idle minutes, which surfaces as a transient
+            // 502/relay error on exactly the tap that's most likely to be the day's first —
+            // pressing 기상 right after opening the app. One quiet retry absorbs that instead of
+            // leaving the quick-log button looking like it silently did nothing.
+            guard isTransient(error) else {
+                errorMessage = friendlyErrorMessage(error)
+                return
+            }
+            do {
+                try await Task.sleep(nanoseconds: 800_000_000)
+                let _: LogEntry = try await client.functions.invoke("logs", options: .init(body: request))
+                await loadLogs(on: Date())
+            } catch {
+                errorMessage = friendlyErrorMessage(error)
+            }
+        }
+    }
+
+    private func isTransient(_ error: Error) -> Bool {
+        switch error {
+        case FunctionsError.relayError:
+            return true
+        case FunctionsError.httpError(let code, _):
+            return code >= 500
+        default:
+            return (error as? URLError)?.code != nil
         }
     }
 
