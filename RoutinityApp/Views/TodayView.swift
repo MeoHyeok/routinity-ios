@@ -44,10 +44,6 @@ struct TodayView: View {
         return count
     }
 
-    private var hasLoggedWakeToday: Bool {
-        logsViewModel.logs.contains { $0.type == .wake }
-    }
-
     private var mealCount: Int {
         logsViewModel.logs.filter { $0.type == .mealEnd }.count
     }
@@ -271,16 +267,17 @@ struct TodayView: View {
             // 다른 버튼들과 달리 절대 잠기지 않는다.
             toggleLogButton(startType: .wake, endType: .sleep, openSince: wakeOpenSince, showsStopwatch: false, isLocked: false)
 
-            // 식사 시작↔종료: 기상 전이거나 공부가 진행 중이면 잠금 — 동시에 두 활동을 기록할 수 없다.
+            // 식사 시작↔종료: 지금 깨어있는 상태(기상~취침 사이)가 아니거나 공부가 진행 중이면 잠금 —
+            // 취침을 기록한 뒤에는 그날의 활동이 끝난 것이므로 다시 기상하기 전까진 잠긴 채로 둔다.
             toggleLogButton(
                 startType: .mealStart, endType: .mealEnd, openSince: mealOpenSince, showsStopwatch: false,
-                isLocked: !hasLoggedWakeToday || studyOpenSince != nil
+                isLocked: wakeOpenSince == nil || studyOpenSince != nil
             )
 
-            // 공부 시작↔종료: 기상 전이거나 식사가 진행 중이면 잠금. 진행 중일 때 실시간 스톱워치 표시.
+            // 공부 시작↔종료: 지금 깨어있는 상태가 아니거나 식사가 진행 중이면 잠금. 진행 중일 때 실시간 스톱워치 표시.
             toggleLogButton(
                 startType: .studyStart, endType: .studyEnd, openSince: studyOpenSince, showsStopwatch: true,
-                isLocked: !hasLoggedWakeToday || mealOpenSince != nil
+                isLocked: wakeOpenSince == nil || mealOpenSince != nil
             )
         }
     }
