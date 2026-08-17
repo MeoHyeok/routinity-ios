@@ -53,8 +53,7 @@ struct InsightsView: View {
                                     Text("\(average.avgDailyScore)점")
                                         .font(.headline)
                                 }
-                                .padding()
-                                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                                .routinityCard()
                             }
                         }
                     }
@@ -64,9 +63,10 @@ struct InsightsView: View {
                         .foregroundStyle(.red)
                 }
             }
-            .padding()
+            .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .background(Color.routinityBackground)
         .navigationTitle("패턴 분석")
         .task {
             await viewModel.loadInsights()
@@ -87,8 +87,7 @@ struct InsightsView: View {
             }
             Spacer()
         }
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .routinityCard()
     }
 
     private func weekdaySummaryCard(title: String, summary: Insights.WeekdaySummary, color: Color) -> some View {
@@ -103,8 +102,7 @@ struct InsightsView: View {
                 .foregroundStyle(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .routinityCard()
     }
 
     private static func trendSymbol(_ direction: String) -> String {

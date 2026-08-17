@@ -25,19 +25,33 @@ struct TimelineView: View {
                     .foregroundStyle(.red)
                 Spacer()
             } else if logsViewModel.logs.isEmpty {
-                Text("이 날짜에는 기록이 없습니다.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                VStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.tertiary)
+                    Text("이 날짜에는 기록이 없습니다.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
             } else {
                 List(logsViewModel.logs) { log in
-                    HStack {
-                        Image(systemName: log.type.symbolName)
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.accentColor.opacity(0.12))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: log.type.symbolName)
+                                .font(.footnote)
+                                .foregroundStyle(.tint)
+                        }
                         Text(log.type.displayName)
                         Spacer()
                         Text(log.timestamp, style: .time)
                             .foregroundStyle(.secondary)
                     }
+                    .padding(.vertical, 4)
+                    .listRowSeparator(.hidden)
                     .swipeActions {
                         Button("삭제", role: .destructive) {
                             Task { await logsViewModel.deleteLog(id: log.id) }
@@ -48,6 +62,7 @@ struct TimelineView: View {
             }
         }
         .navigationTitle("타임라인")
+        .background(Color.routinityBackground)
         .task(id: selectedDate) {
             await logsViewModel.loadLogs(on: selectedDate)
         }
