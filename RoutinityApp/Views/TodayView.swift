@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct TodayView: View {
     @ObservedObject var authViewModel: AuthViewModel
@@ -44,10 +45,19 @@ struct TodayView: View {
 
                     quickLogSection
 
-                    if let errorMessage = logsViewModel.errorMessage {
-                        Text(errorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                    if let errorMessage = logsViewModel.errorMessage ?? scoreViewModel.errorMessage {
+                        VStack(spacing: 8) {
+                            Text(errorMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                            Button("다시 시도") {
+                                Task {
+                                    await scoreViewModel.refreshTodayScore()
+                                    await logsViewModel.loadLogs(on: Date())
+                                }
+                            }
+                            .font(.footnote.weight(.semibold))
+                        }
                     }
                 }
                 .padding(20)
@@ -203,7 +213,13 @@ struct TodayView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(LogEntry.LogType.allCases, id: \.self) { type in
                     Button {
-                        Task { await logsViewModel.recordLog(type: type) }
+                        Task {
+                            await logsViewModel.recordLog(type: type)
+                            await scoreViewModel.refreshTodayScore()
+                            if logsViewModel.errorMessage == nil {
+                                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            }
+                        }
                     } label: {
                         HStack(spacing: 10) {
                             ZStack {
