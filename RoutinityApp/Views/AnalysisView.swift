@@ -33,7 +33,7 @@ struct AnalysisView: View {
     private var averageScore: Int? {
         let scored = trendViewModel.points.compactMap { $0.dailyScore }
         guard !scored.isEmpty else { return nil }
-        return Int(Double(scored.reduce(0, +)) / Double(scored.count).rounded())
+        return Int((Double(scored.reduce(0, +)) / Double(scored.count)).rounded())
     }
 
     private static func minutesFromTimeString(_ value: String) -> Int? {

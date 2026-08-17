@@ -24,6 +24,11 @@ struct RootView: View {
                 AuthView(viewModel: authViewModel)
             }
         }
+        // AuthView and the initial-session ProgressView otherwise follow the system appearance —
+        // on a light-mode device that meant white-on-white text (routinityFieldStyle hardcodes
+        // white foreground) over the explicit near-black routinityBackground. Every screen past
+        // login already forces dark individually; this covers the two that were missed.
+        .preferredColorScheme(.dark)
     }
 }
 

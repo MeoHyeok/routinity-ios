@@ -35,7 +35,10 @@ struct TimelineView: View {
                 }
                 Spacer()
             } else {
-                List(logsViewModel.logs) { log in
+                // The API doesn't guarantee response order (TodayView's own log-pairing logic
+                // sorts before relying on it too), so without this a "타임라인" could render out
+                // of chronological order.
+                List(logsViewModel.logs.sorted(by: { $0.timestamp < $1.timestamp })) { log in
                     HStack(spacing: 14) {
                         ZStack {
                             Circle()

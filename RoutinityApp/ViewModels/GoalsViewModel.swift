@@ -47,9 +47,10 @@ final class GoalsViewModel: ObservableObject {
         defer { isSaving = false }
 
         var saveError: Error?
+        var savedAnything = false
         do {
-            try await upsert(type: GoalTargetType.wakeTime, value: wakeTime)
-            try await upsert(type: GoalTargetType.studyDuration, value: studyMinutes)
+            savedAnything = try await upsert(type: GoalTargetType.wakeTime, value: wakeTime)
+            savedAnything = try await upsert(type: GoalTargetType.studyDuration, value: studyMinutes) || savedAnything
         } catch {
             saveError = error
         }
@@ -61,7 +62,7 @@ final class GoalsViewModel: ObservableObject {
 
         if let saveError {
             errorMessage = friendlyErrorMessage(saveError)
-        } else {
+        } else if savedAnything {
             savedMessage = "저장되었습니다."
         }
     }
@@ -90,10 +91,15 @@ final class GoalsViewModel: ObservableObject {
         }
     }
 
-    private func upsert(type: String, value: String) async throws {
-        guard !value.isEmpty else { return }
+    /// Returns whether a request was actually made, so `save()` can tell "nothing to save" (both
+    /// fields blank) apart from a real success — otherwise tapping 저장 on an untouched, empty
+    /// form claimed "저장되었습니다" without ever calling the API.
+    @discardableResult
+    private func upsert(type: String, value: String) async throws -> Bool {
+        guard !value.isEmpty else { return false }
 
         let request = GoalUpsertRequest(targetType: type, targetValue: value)
         let _: Goal = try await client.functions.invoke("goals", options: .init(body: request))
+        return true
     }
 }
