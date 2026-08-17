@@ -13,7 +13,7 @@ struct RootView: View {
             if !authViewModel.hasLoadedInitialSession {
                 ProgressView()
             } else if authViewModel.isAuthenticated {
-                HomeView(authViewModel: authViewModel)
+                MainTabView(authViewModel: authViewModel)
             } else {
                 AuthView(viewModel: authViewModel)
             }

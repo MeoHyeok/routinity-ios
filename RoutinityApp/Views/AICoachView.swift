@@ -1,0 +1,88 @@
+//
+//  AICoachView.swift
+//  RoutinityApp
+//
+
+import SwiftUI
+
+struct AICoachView: View {
+    @StateObject private var viewModel = ReportViewModel()
+    @State private var period: ReportPeriod = .daily
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
+
+                    Picker("기간", selection: $period) {
+                        Text("오늘").tag(ReportPeriod.daily)
+                        Text("주간").tag(ReportPeriod.weekly)
+                        Text("월간").tag(ReportPeriod.monthly)
+                    }
+                    .pickerStyle(.segmented)
+
+                    if viewModel.isLoading {
+                        ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+                    } else if let report = viewModel.report {
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "sparkles")
+                                    .foregroundStyle(LinearGradient.routinityAccent)
+                                Text(report.generatedVia == "claude" ? "AI 생성 리포트" : "기본 템플릿 리포트")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                if report.cached {
+                                    Text("캐시됨")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 8).padding(.vertical, 3)
+                                        .background(Color.white.opacity(0.08), in: Capsule())
+                                }
+                            }
+
+                            if let dateRange = report.dateRange {
+                                Text("\(dateRange.from) ~ \(dateRange.to)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+
+                            Text(report.content)
+                                .font(.body)
+                                .foregroundStyle(.white)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .routinityCard(glow: true)
+                    } else if let errorMessage = viewModel.errorMessage {
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color.routinityBackground)
+            .toolbar(.hidden, for: .navigationBar)
+            .task(id: period) {
+                await viewModel.loadReport(period: period)
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("AI 코치")
+                .font(.system(size: 24, weight: .heavy, design: .rounded))
+                .foregroundStyle(LinearGradient.routinityHeadline)
+            Text("루틴을 바탕으로 한 코멘트를 받아보세요")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+#Preview {
+    AICoachView()
+}

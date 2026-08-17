@@ -10,26 +10,49 @@ import SwiftUI
 import UIKit
 
 extension Color {
-    // White cards floating on a soft gray backdrop (the Settings/Health pattern) read as far
-    // more "finished" than gray-card-on-white once a shadow is added — flat same-tone fills are
-    // what made the first pass feel unstyled.
-    static let routinityCard = Color(uiColor: .systemBackground)
-    static let routinityBackground = Color(uiColor: .systemGroupedBackground)
-    static let routinityShadow = Color.black.opacity(0.08)
+    // Dark, glowing dashboard look: near-black backdrop, slightly-raised card surfaces, a
+    // violet→pink→cyan gradient family used consistently for emphasis (rings, headlines,
+    // active states) rather than scattering many hues.
+    static let routinityBackground = Color(red: 0.043, green: 0.043, blue: 0.067)
+    static let routinityCard = Color(red: 0.086, green: 0.086, blue: 0.122)
+    static let routinityCardBorder = Color.white.opacity(0.06)
+    static let routinityGlow = Color(red: 0.55, green: 0.36, blue: 0.96).opacity(0.28)
+
+    static let routinityViolet = Color(red: 0.55, green: 0.36, blue: 0.96)
+    static let routinityPink = Color(red: 0.93, green: 0.38, blue: 0.62)
+    static let routinityCyan = Color(red: 0.30, green: 0.78, blue: 0.93)
+    static let routinityOrange = Color(red: 0.98, green: 0.58, blue: 0.29)
+    static let routinityGreen = Color(red: 0.35, green: 0.82, blue: 0.55)
+}
+
+extension LinearGradient {
+    static let routinityAccent = LinearGradient(
+        colors: [.routinityViolet, .routinityPink],
+        startPoint: .leading, endPoint: .trailing
+    )
+    static let routinityHeadline = LinearGradient(
+        colors: [.routinityPink, .routinityViolet],
+        startPoint: .leading, endPoint: .trailing
+    )
 }
 
 enum RoutinityMetrics {
-    static let cardCornerRadius: CGFloat = 18
+    static let cardCornerRadius: CGFloat = 20
     static let controlCornerRadius: CGFloat = 14
 }
 
 extension View {
-    /// Card surface with a soft, single-light-source shadow for depth.
-    func routinityCard(padding: CGFloat = 16) -> some View {
+    /// Card surface for the dark dashboard: subtle raised fill, hairline border, soft glow
+    /// instead of a hard drop shadow (a real shadow reads oddly on a near-black backdrop).
+    func routinityCard(padding: CGFloat = 16, glow: Bool = false) -> some View {
         self
             .padding(padding)
             .background(Color.routinityCard, in: RoundedRectangle(cornerRadius: RoutinityMetrics.cardCornerRadius, style: .continuous))
-            .shadow(color: Color.routinityShadow, radius: 12, x: 0, y: 4)
+            .overlay(
+                RoundedRectangle(cornerRadius: RoutinityMetrics.cardCornerRadius, style: .continuous)
+                    .strokeBorder(glow ? Color.routinityViolet.opacity(0.35) : Color.routinityCardBorder, lineWidth: 1)
+            )
+            .shadow(color: glow ? Color.routinityGlow : .clear, radius: 20, x: 0, y: 8)
     }
 
     func routinityFieldStyle() -> some View {
@@ -39,7 +62,8 @@ extension View {
             .background(Color.routinityCard, in: RoundedRectangle(cornerRadius: RoutinityMetrics.controlCornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: RoutinityMetrics.controlCornerRadius, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                    .strokeBorder(Color.routinityCardBorder, lineWidth: 1)
             )
+            .foregroundStyle(.white)
     }
 }
