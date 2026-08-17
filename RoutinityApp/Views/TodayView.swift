@@ -371,6 +371,10 @@ private struct SleepReportSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .routinityCard()
+
+                        if let breakdown = viewModel.report?.timeBreakdown {
+                            TimeBreakdownChart(breakdown: breakdown)
+                        }
                     } else if let errorMessage = viewModel.errorMessage {
                         Text(errorMessage)
                             .font(.footnote)

@@ -32,6 +32,20 @@ enum ReportPeriod {
     }
 }
 
+struct TimeBreakdown: Decodable {
+    let activeMinutes: Int
+    let mealMinutes: Int
+    let studyMinutes: Int
+    let restMinutes: Int
+
+    enum CodingKeys: String, CodingKey {
+        case activeMinutes = "active_minutes"
+        case mealMinutes = "meal_minutes"
+        case studyMinutes = "study_minutes"
+        case restMinutes = "rest_minutes"
+    }
+}
+
 struct Report: Decodable {
     let period: String
     let date: String?
@@ -39,6 +53,7 @@ struct Report: Decodable {
     let content: String
     let cached: Bool
     let generatedVia: String?
+    let timeBreakdown: TimeBreakdown?
 
     enum CodingKeys: String, CodingKey {
         case period
@@ -47,5 +62,6 @@ struct Report: Decodable {
         case content
         case cached
         case generatedVia = "generated_via"
+        case timeBreakdown = "time_breakdown"
     }
 }

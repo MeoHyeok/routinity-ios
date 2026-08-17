@@ -54,6 +54,10 @@ struct AICoachView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         .routinityCard(glow: true)
+
+                        if let breakdown = report.timeBreakdown {
+                            TimeBreakdownChart(breakdown: breakdown)
+                        }
                     } else if let errorMessage = viewModel.errorMessage {
                         Text(errorMessage)
                             .font(.footnote)
