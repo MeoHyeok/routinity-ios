@@ -10,7 +10,10 @@ struct TodayView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @StateObject private var logsViewModel = LogsViewModel()
     @StateObject private var scoreViewModel = ScoreViewModel()
+    @StateObject private var sleepReportViewModel = ReportViewModel()
+    @StateObject private var streakViewModel = TrendViewModel()
     @State private var showSettings = false
+    @State private var showSleepReport = false
     /// Distinguishes "still loading" from "genuinely empty" for the very first load — after
     /// that, quick-log refreshes flip isLoading again but shouldn't blank the whole screen.
     @State private var hasLoadedOnce = false
@@ -28,48 +31,43 @@ struct TodayView: View {
         return formatter
     }()
 
-    private var achievedCount: Int {
-        scoreViewModel.scores.filter { $0.status == .achieved }.count
+    /// Consecutive days (ending today) with daily_score ≥ 80 — matches the "green" threshold
+    /// already used everywhere else in the app as the bar for "achieved". A single "N개 목표
+    /// 달성" count for today was ambiguous about what it meant or over what period; a streak
+    /// is a clearer, more motivating framing for the same underlying data.
+    private var streakDays: Int {
+        var count = 0
+        for point in streakViewModel.points.reversed() {
+            guard let score = point.dailyScore, score >= 80 else { break }
+            count += 1
+        }
+        return count
     }
 
-    private var mealCount: Int {
-        logsViewModel.logs.filter { $0.type == .meal }.count
-    }
-
-    /// Wake is a once-a-day event — nothing stopped repeated taps from piling up duplicate
-    /// "기상" logs, each counted separately in "오늘 기록".
     private var hasLoggedWakeToday: Bool {
         logsViewModel.logs.contains { $0.type == .wake }
     }
 
-    /// An open study session (a study_start with no matching study_end yet today). Used to
-    /// stop "공부 시작" from being tapped again mid-session, and "공부 종료" from being tapped
-    /// with nothing to end.
-    private var isStudyInProgress: Bool {
-        let starts = logsViewModel.logs.filter { $0.type == .studyStart }.count
-        let ends = logsViewModel.logs.filter { $0.type == .studyEnd }.count
-        return starts > ends
+    private var mealCount: Int {
+        logsViewModel.logs.filter { $0.type == .mealEnd }.count
     }
 
-    private func isQuickLogDisabled(_ type: LogEntry.LogType) -> Bool {
-        switch type {
-        case .wake: return hasLoggedWakeToday
-        case .studyStart: return isStudyInProgress
-        case .studyEnd: return !isStudyInProgress
-        case .meal: return false
+    /// The timestamp of a start-type log that hasn't been closed by its matching end-type log
+    /// yet today — walks logs in order rather than just comparing counts, so a resumed session
+    /// always counts from the real open start, not "now". Used for all three start/end pairs
+    /// (기상~취침, 식사 시작~종료, 공부 시작~종료), which all follow the same shape.
+    private func openStart(_ startType: LogEntry.LogType, _ endType: LogEntry.LogType) -> Date? {
+        var open: Date?
+        for log in logsViewModel.logs.sorted(by: { $0.timestamp < $1.timestamp }) {
+            if log.type == startType { open = log.timestamp }
+            else if log.type == endType { open = nil }
         }
+        return open
     }
 
-    /// Only wake/studyStart being disabled means "already done today" (checkmark reads
-    /// correctly there). studyEnd is disabled for the opposite reason — nothing open to end —
-    /// so it keeps its normal icon, just dimmed.
-    private func isQuickLogCompleted(_ type: LogEntry.LogType) -> Bool {
-        switch type {
-        case .wake: return hasLoggedWakeToday
-        case .studyStart: return isStudyInProgress
-        case .studyEnd, .meal: return false
-        }
-    }
+    private var wakeOpenSince: Date? { openStart(.wake, .sleep) }
+    private var mealOpenSince: Date? { openStart(.mealStart, .mealEnd) }
+    private var studyOpenSince: Date? { openStart(.studyStart, .studyEnd) }
 
     var body: some View {
         NavigationStack {
@@ -108,11 +106,18 @@ struct TodayView: View {
             .task {
                 async let scoreTask: Void = scoreViewModel.refreshTodayScore()
                 async let logsTask: Void = logsViewModel.loadLogs(on: Date())
-                _ = await (scoreTask, logsTask)
+                // 14 days, not more — TrendViewModel fires one /scores + one /logs call per day
+                // concurrently, and piling on top of the score/logs calls already in flight here
+                // risks tripping the 60-per-minute rate limit on a single screen load.
+                async let streakTask: Void = streakViewModel.loadTrend(days: 14)
+                _ = await (scoreTask, logsTask, streakTask)
                 hasLoadedOnce = true
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView(authViewModel: authViewModel)
+            }
+            .sheet(isPresented: $showSleepReport) {
+                SleepReportSheet(viewModel: sleepReportViewModel)
             }
         }
         .preferredColorScheme(.dark)
@@ -186,10 +191,7 @@ struct TodayView: View {
                     .font(.title3.bold())
                     .foregroundStyle(.white)
 
-                HStack(spacing: 8) {
-                    statPill(value: "\(logsViewModel.logs.count)", label: "오늘 기록")
-                    statPill(value: "\(achievedCount)", label: "목표 달성")
-                }
+                statPill(value: "\(streakDays)일", label: "연속 달성")
             }
             Spacer()
         }
@@ -265,54 +267,128 @@ struct TodayView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(LogEntry.LogType.allCases, id: \.self) { type in
-                    quickLogButton(for: type)
-                }
-            }
+            // 기상↔취침: 취침을 기록하면 그 즉시 오늘 리포트를 생성해서 보여준다. 하루의 시작이라
+            // 다른 버튼들과 달리 절대 잠기지 않는다.
+            toggleLogButton(startType: .wake, endType: .sleep, openSince: wakeOpenSince, showsStopwatch: false, isLocked: false)
+
+            // 식사 시작↔종료: 기상 전이거나 공부가 진행 중이면 잠금 — 동시에 두 활동을 기록할 수 없다.
+            toggleLogButton(
+                startType: .mealStart, endType: .mealEnd, openSince: mealOpenSince, showsStopwatch: false,
+                isLocked: !hasLoggedWakeToday || studyOpenSince != nil
+            )
+
+            // 공부 시작↔종료: 기상 전이거나 식사가 진행 중이면 잠금. 진행 중일 때 실시간 스톱워치 표시.
+            toggleLogButton(
+                startType: .studyStart, endType: .studyEnd, openSince: studyOpenSince, showsStopwatch: true,
+                isLocked: !hasLoggedWakeToday || mealOpenSince != nil
+            )
         }
     }
 
-    private func quickLogButton(for type: LogEntry.LogType) -> some View {
-        let disabledByState = isQuickLogDisabled(type)
-        let isCompleted = isQuickLogCompleted(type)
+    private func toggleLogButton(
+        startType: LogEntry.LogType,
+        endType: LogEntry.LogType,
+        openSince: Date?,
+        showsStopwatch: Bool,
+        isLocked: Bool
+    ) -> some View {
+        let inProgress = openSince != nil
+        let type = inProgress ? endType : startType
+        let isRecordingThisPair = logsViewModel.isRecording == startType || logsViewModel.isRecording == endType
         return Button {
-            Task {
-                await logsViewModel.recordLog(type: type)
-                await scoreViewModel.refreshTodayScore()
-                if logsViewModel.errorMessage == nil {
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                }
-            }
+            recordAndRefresh(type)
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(Color.routinityViolet.opacity(disabledByState ? 0.12 : 0.3))
-                        .frame(width: 34, height: 34)
-                    if logsViewModel.isRecording == type {
+                        .fill(Color.routinityViolet.opacity(isLocked ? 0.12 : 0.3))
+                        .frame(width: 40, height: 40)
+                    if isRecordingThisPair {
                         ProgressView().tint(.white)
                     } else {
-                        Image(systemName: isCompleted ? "checkmark" : type.symbolName)
-                            .font(.footnote)
-                            .foregroundStyle(disabledByState ? Color.secondary : Color.white)
+                        Image(systemName: isLocked ? "lock.fill" : type.symbolName)
+                            .font(.subheadline)
+                            .foregroundStyle(isLocked ? Color.secondary : Color.white)
                     }
                 }
-                Text(type.displayName)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(disabledByState ? Color.secondary : Color.white)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(type.displayName)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(isLocked ? Color.secondary : Color.white)
+                    if inProgress, showsStopwatch, let start = openSince {
+                        Text(start, style: .timer)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(Color.routinityCyan)
+                    }
+                }
                 Spacer()
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
         }
         .routinityCard(padding: 12)
-        .disabled(logsViewModel.isRecording != nil || disabledByState)
+        .disabled(logsViewModel.isRecording != nil || isLocked)
+    }
+
+    private func recordAndRefresh(_ type: LogEntry.LogType) {
+        Task {
+            await logsViewModel.recordLog(type: type)
+            await scoreViewModel.refreshTodayScore()
+            guard logsViewModel.errorMessage == nil else { return }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+
+            // 취침을 기록하면 그 시점 데이터로 오늘 리포트를 생성해서 바로 보여준다.
+            if type == .sleep {
+                await sleepReportViewModel.loadReport(period: .daily)
+                showSleepReport = true
+            }
+        }
     }
 }
 
 private extension ScoreViewModel {
     func entry(for targetType: String) -> ScoreEntry? {
         scores.first { $0.targetType == targetType }
+    }
+}
+
+/// Shown right after 취침 is logged — the report generated from that moment's data.
+private struct SleepReportSheet: View {
+    @ObservedObject var viewModel: ReportViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 60)
+                    } else if let report = viewModel.report {
+                        Text(report.content)
+                            .font(.body)
+                            .foregroundStyle(.white)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .routinityCard()
+                    } else if let errorMessage = viewModel.errorMessage {
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color.routinityBackground)
+            .navigationTitle("오늘 리포트")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("닫기") { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 

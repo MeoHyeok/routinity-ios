@@ -85,7 +85,7 @@ final class TrendViewModel: ObservableObject {
             options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
         )
         let (scoresResponse, logs) = try await (scoresTask, logsTask)
-        let hadMeal = logs.contains { $0.type == .meal }
+        let hadMeal = logs.contains { $0.type == .mealEnd }
         return DailyTrendPoint(date: date, dailyScore: scoresResponse.dailyScore, scores: scoresResponse.scores, hadMeal: hadMeal)
     }
 

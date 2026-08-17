@@ -110,7 +110,7 @@ struct AnalysisView: View {
             VStack(spacing: 10) {
                 progressRow(title: "루틴 준수", value: averageScore ?? 0, color: .routinityViolet)
                 progressRow(title: "기상 규칙성", value: consistency(for: GoalTargetType.wakeTime), color: .routinityOrange)
-                progressRow(title: "공부 몰입도", value: consistency(for: GoalTargetType.studyDuration), color: .routinityCyan)
+                progressRow(title: "공부 목표 달성도", value: consistency(for: GoalTargetType.studyDuration), color: .routinityCyan)
             }
         }
         .routinityCard(glow: true)

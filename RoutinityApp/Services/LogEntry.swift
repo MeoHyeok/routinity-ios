@@ -8,14 +8,18 @@ import Foundation
 struct LogEntry: Identifiable, Codable, Hashable {
     enum LogType: String, Codable, CaseIterable {
         case wake
-        case meal
+        case sleep
+        case mealStart = "meal_start"
+        case mealEnd = "meal_end"
         case studyStart = "study_start"
         case studyEnd = "study_end"
 
         var displayName: String {
             switch self {
             case .wake: return "기상"
-            case .meal: return "식사"
+            case .sleep: return "취침"
+            case .mealStart: return "식사 시작"
+            case .mealEnd: return "식사 종료"
             case .studyStart: return "공부 시작"
             case .studyEnd: return "공부 종료"
             }
@@ -24,7 +28,9 @@ struct LogEntry: Identifiable, Codable, Hashable {
         var symbolName: String {
             switch self {
             case .wake: return "sun.max"
-            case .meal: return "fork.knife"
+            case .sleep: return "moon.stars"
+            case .mealStart: return "fork.knife"
+            case .mealEnd: return "checkmark.circle"
             case .studyStart: return "book"
             case .studyEnd: return "checkmark.circle"
             }
