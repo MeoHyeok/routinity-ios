@@ -18,6 +18,18 @@ struct AnalysisView: View {
     @StateObject private var insightsViewModel = InsightsViewModel()
     @State private var window: Window = .weekly
 
+    /// Points with a nil dailyScore don't get a mark drawn, so without an explicit domain the
+    /// chart's x-axis silently shrinks to whichever days happen to have a score — the requested
+    /// week/month should always show in full, missing days included, so it stays comparable
+    /// week to week.
+    private var chartDateDomain: ClosedRange<Date> {
+        guard let first = trendViewModel.points.first?.date, let last = trendViewModel.points.last?.date else {
+            let now = Date()
+            return now...now
+        }
+        return first...last
+    }
+
     private var averageScore: Int? {
         let scored = trendViewModel.points.compactMap { $0.dailyScore }
         guard !scored.isEmpty else { return nil }
@@ -161,6 +173,7 @@ struct AnalysisView: View {
                 }
             }
             .chartYScale(domain: 0...100)
+            .chartXScale(domain: chartDateDomain)
             .chartXAxis {
                 AxisMarks(values: window == .weekly ? .stride(by: .day) : .stride(by: .day, count: 5)) { value in
                     if let date = value.as(Date.self) {
@@ -200,6 +213,7 @@ struct AnalysisView: View {
                         .position(by: .value("구분", "목표"))
                 }
             }
+            .chartXScale(domain: chartDateDomain)
             .chartXAxis {
                 AxisMarks(values: window == .weekly ? .stride(by: .day) : .stride(by: .day, count: 5)) { value in
                     if let date = value.as(Date.self) {
