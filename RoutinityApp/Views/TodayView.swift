@@ -366,9 +366,10 @@ struct TodayView: View {
     private var mealRestCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             mealRestRow(icon: "fork.knife", tint: .routinityPink, value: mealMinutesLabel, label: "식사")
+            Spacer(minLength: 0)
             mealRestRow(icon: "cup.and.saucer.fill", tint: .routinityViolet, value: restMinutesSoFarToday.map { "\($0)분" } ?? "-", label: "휴식")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .routinityCard(padding: 12)
     }
 
@@ -411,7 +412,7 @@ struct TodayView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .routinityCard(padding: 12)
     }
 
