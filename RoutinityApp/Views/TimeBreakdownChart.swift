@@ -19,6 +19,13 @@ struct TimeBreakdownChart: View {
         ]
     }
 
+    /// A same-instant 기상~취침 (or any day where every bucket is genuinely 0) leaves nothing for
+    /// SectorMark to draw — an all-zero-angle chart renders as an empty area, which reads as a
+    /// broken chart rather than "there's just no data yet." Falls back to a plain track ring.
+    private var hasAnyData: Bool {
+        segments.contains { $0.minutes > 0 }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("24시간 시간 분배")
@@ -26,16 +33,24 @@ struct TimeBreakdownChart: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 24) {
-                Chart(segments, id: \.label) { segment in
-                    SectorMark(
-                        angle: .value("분", max(segment.minutes, 0)),
-                        innerRadius: .ratio(0.62),
-                        angularInset: 1.5
-                    )
-                    .foregroundStyle(segment.color)
-                    .cornerRadius(4)
+                Group {
+                    if hasAnyData {
+                        Chart(segments, id: \.label) { segment in
+                            SectorMark(
+                                angle: .value("분", max(segment.minutes, 0)),
+                                innerRadius: .ratio(0.62),
+                                angularInset: 1.5
+                            )
+                            .foregroundStyle(segment.color)
+                            .cornerRadius(4)
+                        }
+                        .chartLegend(.hidden)
+                    } else {
+                        Circle()
+                            .stroke(Color.white.opacity(0.08), lineWidth: 14)
+                            .padding(6)
+                    }
                 }
-                .chartLegend(.hidden)
                 .frame(width: 132, height: 132)
                 .overlay {
                     VStack(spacing: 0) {
