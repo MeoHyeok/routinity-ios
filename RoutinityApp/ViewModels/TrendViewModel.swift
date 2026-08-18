@@ -31,11 +31,15 @@ final class TrendViewModel: ObservableObject {
 
     private let client = SupabaseManager.client
 
+    // The backend now buckets a "day" as a KST-labeled 기상→취침 session rather than UTC
+    // midnight, so every date computed here — the request key, the weekday label, and the
+    // trailing-window walk below — has to use KST too or it won't line up with the server's
+    // session label.
     private static let dateKeyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
         return formatter
     }()
 
@@ -43,7 +47,7 @@ final class TrendViewModel: ObservableObject {
         let formatter = DateFormatter()
         formatter.dateFormat = "E"
         formatter.locale = Locale(identifier: "ko_KR")
-        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
         return formatter
     }()
 
@@ -53,7 +57,7 @@ final class TrendViewModel: ObservableObject {
         defer { isLoading = false }
 
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "UTC")!
+        calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
         let today = calendar.startOfDay(for: Date())
         let dates = (0..<days).reversed().compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }
 

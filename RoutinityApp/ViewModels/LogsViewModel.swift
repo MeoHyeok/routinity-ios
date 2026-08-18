@@ -17,11 +17,14 @@ final class LogsViewModel: ObservableObject {
     private let client = SupabaseManager.client
     private static let isoFormatter = ISO8601DateFormatter()
 
+    // The backend now buckets a "day" as a KST-labeled 기상→취침 session rather than UTC
+    // midnight, so the date param we request has to be computed in KST too or it won't line up
+    // with the server's session label.
     private static let dateKeyFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
         return formatter
     }()
 
