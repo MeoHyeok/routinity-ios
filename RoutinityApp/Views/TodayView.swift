@@ -68,20 +68,64 @@ struct TodayView: View {
         return Self.timeOnlyFormatter.string(from: first.timestamp)
     }
 
-    /// Total minutes across all closed 공부 시작~종료 pairs today, computed straight from logs so
-    /// it's visible independent of any goal, same reasoning as actualWakeTimeLabel.
-    private var totalStudyMinutesToday: Int {
+    /// Sum of minutes across all closed startType~endType pairs today, computed straight from
+    /// logs so it's visible independent of any goal — shared by 공부/식사, which both follow the
+    /// same start/end pair shape.
+    private func totalMinutes(startType: LogEntry.LogType, endType: LogEntry.LogType) -> Int {
         var total = 0
         var openStart: Date?
         for log in logsViewModel.logs.sorted(by: { $0.timestamp < $1.timestamp }) {
-            if log.type == .studyStart {
+            if log.type == startType {
                 openStart = log.timestamp
-            } else if log.type == .studyEnd, let start = openStart {
+            } else if log.type == endType, let start = openStart {
                 total += max(0, Int(log.timestamp.timeIntervalSince(start) / 60))
                 openStart = nil
             }
         }
         return total
+    }
+
+    /// Whether at least one pair closed today, regardless of duration — lets a metric card tell
+    /// "did this for under a minute" apart from "never did this at all," since totalMinutes
+    /// truncates to whole minutes and a sub-minute session would otherwise silently round down to
+    /// 0 and look identical to no record existing.
+    private func hasClosedSession(startType: LogEntry.LogType, endType: LogEntry.LogType) -> Bool {
+        var openStart: Date?
+        for log in logsViewModel.logs.sorted(by: { $0.timestamp < $1.timestamp }) {
+            if log.type == startType {
+                openStart = log.timestamp
+            } else if log.type == endType, openStart != nil {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func durationLabel(minutes: Int, hasClosedSession: Bool) -> String {
+        if minutes > 0 { return "\(minutes)분" }
+        if hasClosedSession { return "1분 미만" }
+        return "-"
+    }
+
+    private var totalStudyMinutesToday: Int { totalMinutes(startType: .studyStart, endType: .studyEnd) }
+    private var studyMinutesLabel: String {
+        durationLabel(minutes: totalStudyMinutesToday, hasClosedSession: hasClosedSession(startType: .studyStart, endType: .studyEnd))
+    }
+
+    private var totalMealMinutesToday: Int { totalMinutes(startType: .mealStart, endType: .mealEnd) }
+    private var mealMinutesLabel: String {
+        durationLabel(minutes: totalMealMinutesToday, hasClosedSession: hasClosedSession(startType: .mealStart, endType: .mealEnd))
+    }
+
+    /// A running snapshot of unaccounted time since 기상 (elapsed time minus 식사/공부 totals so
+    /// far) — not the backend's post-hoc "휴식 시간" (which needs 취침 to define the 기상~취침
+    /// window and only exists once a report is generated), just today's rest time so far. Nil
+    /// before 기상 is logged, since there's no window to measure from yet.
+    private var restMinutesSoFarToday: Int? {
+        let wakeLogs = logsViewModel.logs.filter { $0.type == .wake }.sorted { $0.timestamp < $1.timestamp }
+        guard let firstWake = wakeLogs.first else { return nil }
+        let elapsed = max(0, Int(Date().timeIntervalSince(firstWake.timestamp) / 60))
+        return max(0, elapsed - totalMealMinutesToday - totalStudyMinutesToday)
     }
 
     /// Re-derives today's reminders from whatever's currently loaded — cheap enough to call
@@ -307,16 +351,38 @@ struct TodayView: View {
                 icon: "book.fill",
                 tint: .routinityCyan,
                 title: "공부",
-                value: totalStudyMinutesToday > 0 ? "\(totalStudyMinutesToday)분" : "-",
+                value: studyMinutesLabel,
                 subtitle: scoreViewModel.entry(for: GoalTargetType.studyDuration).map { "목표 \($0.targetValue)분" } ?? "목표 없음"
             )
-            metricCard(
-                icon: "fork.knife",
-                tint: .routinityPink,
-                title: "식사",
-                value: "\(mealCount)회",
-                subtitle: "오늘 기록"
-            )
+            mealRestCard
+        }
+    }
+
+    /// Meal and rest share this card slot as two separate numbers rather than one merged figure
+    /// (넓게 보면 식사도 휴식의 일종) — 휴식 is a running snapshot since 기상 (see
+    /// restMinutesSoFarToday), so it reads "-" until 기상 is logged.
+    private var mealRestCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            mealRestRow(icon: "fork.knife", tint: .routinityPink, label: "식사", value: mealMinutesLabel)
+            mealRestRow(icon: "cup.and.saucer.fill", tint: .routinityViolet, label: "휴식", value: restMinutesSoFarToday.map { "\($0)분" } ?? "-")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .routinityCard(padding: 12)
+    }
+
+    private func mealRestRow(icon: String, tint: Color, label: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundStyle(tint)
+                .frame(width: 16)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
         }
     }
 
