@@ -33,6 +33,12 @@ struct TodayView: View {
         return formatter
     }()
 
+    private static let timeOnlyFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
     /// Consecutive days (ending today) with daily_score ≥ 80 — matches the "green" threshold
     /// already used everywhere else in the app as the bar for "achieved". A single "N개 목표
     /// 달성" count for today was ambiguous about what it meant or over what period; a streak
@@ -52,6 +58,31 @@ struct TodayView: View {
 
     private var hasLoggedWakeToday: Bool { logsViewModel.logs.contains { $0.type == .wake } }
     private var hasLoggedSleepToday: Bool { logsViewModel.logs.contains { $0.type == .sleep } }
+
+    /// The day's first 기상 log, shown regardless of whether a wake goal is even set — the
+    /// metric card was only reading /scores entries, which only exist when a goal is configured
+    /// for that type, so a user with no goal saw "-" even right after actually logging 기상.
+    private var actualWakeTimeLabel: String? {
+        let wakeLogs = logsViewModel.logs.filter { $0.type == .wake }.sorted { $0.timestamp < $1.timestamp }
+        guard let first = wakeLogs.first else { return nil }
+        return Self.timeOnlyFormatter.string(from: first.timestamp)
+    }
+
+    /// Total minutes across all closed 공부 시작~종료 pairs today, computed straight from logs so
+    /// it's visible independent of any goal, same reasoning as actualWakeTimeLabel.
+    private var totalStudyMinutesToday: Int {
+        var total = 0
+        var openStart: Date?
+        for log in logsViewModel.logs.sorted(by: { $0.timestamp < $1.timestamp }) {
+            if log.type == .studyStart {
+                openStart = log.timestamp
+            } else if log.type == .studyEnd, let start = openStart {
+                total += max(0, Int(log.timestamp.timeIntervalSince(start) / 60))
+                openStart = nil
+            }
+        }
+        return total
+    }
 
     /// Re-derives today's reminders from whatever's currently loaded — cheap enough to call
     /// after every refresh so a just-logged 기상/취침 cancels its own reminder immediately
@@ -269,14 +300,14 @@ struct TodayView: View {
                 icon: "sun.max.fill",
                 tint: .routinityOrange,
                 title: "기상",
-                value: scoreViewModel.entry(for: GoalTargetType.wakeTime)?.actualValue ?? "-",
+                value: actualWakeTimeLabel ?? "-",
                 subtitle: scoreViewModel.entry(for: GoalTargetType.wakeTime).map { "목표 \($0.targetValue)" } ?? "목표 없음"
             )
             metricCard(
                 icon: "book.fill",
                 tint: .routinityCyan,
                 title: "공부",
-                value: (scoreViewModel.entry(for: GoalTargetType.studyDuration)?.actualValue).map { "\($0)분" } ?? "-",
+                value: totalStudyMinutesToday > 0 ? "\(totalStudyMinutesToday)분" : "-",
                 subtitle: scoreViewModel.entry(for: GoalTargetType.studyDuration).map { "목표 \($0.targetValue)분" } ?? "목표 없음"
             )
             metricCard(
