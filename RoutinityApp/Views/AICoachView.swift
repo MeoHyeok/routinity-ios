@@ -7,7 +7,12 @@ import SwiftUI
 
 struct AICoachView: View {
     @StateObject private var viewModel = ReportViewModel()
+    @StateObject private var trendViewModel = TrendViewModel()
     @State private var period: ReportPeriod = .daily
+
+    private var goalSuggestion: GoalSuggestion? {
+        computeGoalSuggestion(from: trendViewModel.points)
+    }
 
     var body: some View {
         NavigationStack {
@@ -59,6 +64,8 @@ struct AICoachView: View {
                             SuggestedActionCard(action: suggestedAction)
                         }
 
+                        goalSuggestionCard
+
                         if let breakdown = report.timeBreakdown {
                             TimeBreakdownChart(breakdown: breakdown)
                         }
@@ -75,6 +82,11 @@ struct AICoachView: View {
             .task(id: period) {
                 await viewModel.loadReport(period: period)
             }
+            .task {
+                // Loaded once (not tied to `period`) purely to ground goalSuggestionCard in real
+                // recent data — same 14-day window TodayView's streak calc already uses safely.
+                await trendViewModel.loadTrend(days: 14)
+            }
         }
         .preferredColorScheme(.dark)
     }
@@ -87,6 +99,32 @@ struct AICoachView: View {
             Text("루틴을 바탕으로 한 코멘트를 받아보세요")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var goalSuggestionCard: some View {
+        if let suggestion = goalSuggestion {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(systemName: "lightbulb.fill")
+                        .foregroundStyle(Color.routinityOrange)
+                    Text("목표 제안")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                }
+                Text("\(suggestion.lossTitle)이 최근 \(Int((suggestion.missRate * 100).rounded()))%로 잦아요. 최근 실제 평균에 맞춰 목표를 \(suggestion.suggestedLabel)로 조정해보는 건 어떨까요?")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                NavigationLink {
+                    GoalsView(suggestedWakeTime: suggestion.suggestedWakeTime, suggestedStudyMinutes: suggestion.suggestedStudyMinutes)
+                } label: {
+                    Text("목표 조정하러 가기")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.routinityViolet)
+                }
+            }
+            .routinityCard(glow: true)
         }
     }
 }

@@ -36,67 +36,10 @@ struct AnalysisView: View {
         return Int((Double(scored.reduce(0, +)) / Double(scored.count)).rounded())
     }
 
-    private static func minutesFromTimeString(_ value: String) -> Int? {
-        let parts = value.split(separator: ":")
-        guard parts.count == 2, let hour = Int(parts[0]), let minute = Int(parts[1]) else { return nil }
-        return hour * 60 + minute
-    }
-
-    private static func timeString(fromMinutes minutes: Int) -> String {
-        let normalized = ((minutes % 1440) + 1440) % 1440
-        return String(format: "%02d:%02d", normalized / 60, normalized % 60)
-    }
-
-    /// The recent actual average, not the goal itself — used to ground a suggested new target
-    /// in what the user is really doing, rather than guessing at an arbitrary adjustment.
-    private var averageActualWakeMinutes: Int? {
-        let values = trendViewModel.points
-            .compactMap { $0.entry(for: GoalTargetType.wakeTime)?.actualValue }
-            .compactMap { Self.minutesFromTimeString($0) }
-        guard values.count >= 3 else { return nil }
-        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
-    }
-
-    private var averageActualStudyMinutes: Int? {
-        let values = trendViewModel.points
-            .compactMap { $0.entry(for: GoalTargetType.studyDuration)?.actualValue }
-            .compactMap { Int($0) }
-        guard values.count >= 3 else { return nil }
-        return Int((Double(values.reduce(0, +)) / Double(values.count)).rounded())
-    }
-
-    private struct GoalSuggestion {
-        let lossTitle: String
-        let missRate: Double
-        let suggestedLabel: String
-        let suggestedWakeTime: String?
-        let suggestedStudyMinutes: String?
-    }
-
-    /// Turns "루틴 로스 분석" from a stat into an action: picks whichever of 기상/공부 is missed
-    /// most often, and — only once there's enough real data to ground it — proposes the recent
-    /// actual average as a more achievable next target, with a direct path into 목표 설정.
-    /// Meal irregularity has no goal type to adjust, so it never produces a suggestion here.
+    /// Shared with AICoachView so a report reader gets the same suggestion + 목표 설정 path
+    /// without having to separately visit 분석.
     private var goalSuggestion: GoalSuggestion? {
-        let wakeMissRate = trendViewModel.missRate(for: GoalTargetType.wakeTime) ?? 0
-        let studyMissRate = trendViewModel.missRate(for: GoalTargetType.studyDuration) ?? 0
-        let missRate = max(wakeMissRate, studyMissRate)
-        guard missRate >= 0.3 else { return nil }
-
-        if wakeMissRate >= studyMissRate {
-            guard let minutes = averageActualWakeMinutes else { return nil }
-            let label = Self.timeString(fromMinutes: minutes)
-            return GoalSuggestion(
-                lossTitle: "기상 지연", missRate: wakeMissRate, suggestedLabel: label,
-                suggestedWakeTime: label, suggestedStudyMinutes: nil
-            )
-        } else {
-            guard let minutes = averageActualStudyMinutes, minutes > 0 else { return nil }
-            return GoalSuggestion(
-                lossTitle: "공부 시간 부족", missRate: studyMissRate, suggestedLabel: "\(minutes)분",
-                suggestedWakeTime: nil, suggestedStudyMinutes: "\(minutes)"
-            )
-        }
+        computeGoalSuggestion(from: trendViewModel.points)
     }
 
     var body: some View {
