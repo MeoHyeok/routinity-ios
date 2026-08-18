@@ -29,7 +29,11 @@ struct GoalsView: View {
     /// actual user selection, so just displaying a fallback here doesn't silently create a goal.
     private var wakeTimeSelection: Binding<Date> {
         Binding<Date>(
-            get: { Self.wakeTimeFormatter.date(from: viewModel.wakeTime) ?? Self.wakeTimeFormatter.date(from: Self.starterWakeTime)! },
+            get: {
+                Self.wakeTimeFormatter.date(from: viewModel.wakeTime)
+                    ?? Self.wakeTimeFormatter.date(from: Self.starterWakeTime)
+                    ?? Date()
+            },
             set: { viewModel.wakeTime = Self.wakeTimeFormatter.string(from: $0) }
         )
     }
