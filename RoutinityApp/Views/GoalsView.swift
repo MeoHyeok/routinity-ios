@@ -16,6 +16,24 @@ struct GoalsView: View {
     private static let starterWakeTime = "07:00"
     private static let starterStudyMinutes = "120"
 
+    private static let wakeTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
+
+    /// Presents wakeTime (an "HH:mm" string, the shape /goals actually stores) as a native time
+    /// picker instead of free-text typing — a user asked for this after finding typing "07:00"
+    /// with the colon fiddly. Only writes back through `set`, which SwiftUI only calls on an
+    /// actual user selection, so just displaying a fallback here doesn't silently create a goal.
+    private var wakeTimeSelection: Binding<Date> {
+        Binding<Date>(
+            get: { Self.wakeTimeFormatter.date(from: viewModel.wakeTime) ?? Self.wakeTimeFormatter.date(from: Self.starterWakeTime)! },
+            set: { viewModel.wakeTime = Self.wakeTimeFormatter.string(from: $0) }
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -23,13 +41,14 @@ struct GoalsView: View {
 
                 goalCard(
                     title: "기상 목표",
-                    hint: "예: 07:00",
+                    hint: "몇 시에 기상하고 싶으신가요?",
                     hasGoal: viewModel.hasWakeGoal
                 ) {
-                    TextField("HH:mm", text: $viewModel.wakeTime)
-                        .keyboardType(.numbersAndPunctuation)
-                        .autocapitalization(.none)
-                        .routinityFieldStyle()
+                    DatePicker("기상 시간", selection: wakeTimeSelection, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .tint(.routinityViolet)
+                        .environment(\.locale, Locale(identifier: "ko_KR"))
                     if let suggestedWakeTime {
                         suggestionPill(value: suggestedWakeTime) { viewModel.wakeTime = suggestedWakeTime }
                     }
