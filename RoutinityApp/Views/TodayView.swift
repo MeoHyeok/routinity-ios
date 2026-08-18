@@ -17,6 +17,8 @@ struct TodayView: View {
     /// Distinguishes "still loading" from "genuinely empty" for the very first load — after
     /// that, quick-log refreshes flip isLoading again but shouldn't blank the whole screen.
     @State private var hasLoadedOnce = false
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private static let dateHeadingFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -46,6 +48,21 @@ struct TodayView: View {
 
     private var mealCount: Int {
         logsViewModel.logs.filter { $0.type == .mealEnd }.count
+    }
+
+    private var hasLoggedWakeToday: Bool { logsViewModel.logs.contains { $0.type == .wake } }
+    private var hasLoggedSleepToday: Bool { logsViewModel.logs.contains { $0.type == .sleep } }
+
+    /// Re-derives today's reminders from whatever's currently loaded — cheap enough to call
+    /// after every refresh so a just-logged 기상/취침 cancels its own reminder immediately
+    /// instead of waiting for the next full data load.
+    private func scheduleNotificationsIfEnabled() {
+        guard notificationsEnabled else { return }
+        NotificationManager.scheduleTodayReminders(
+            hasLoggedWake: hasLoggedWakeToday,
+            hasLoggedSleep: hasLoggedSleepToday,
+            wakeGoalTime: scoreViewModel.entry(for: GoalTargetType.wakeTime)?.targetValue
+        )
     }
 
     /// Average daily_score over the streak window excluding today (streakViewModel.points is
@@ -123,6 +140,7 @@ struct TodayView: View {
                 async let streakTask: Void = streakViewModel.loadTrend(days: 14)
                 _ = await (scoreTask, logsTask, streakTask)
                 hasLoadedOnce = true
+                scheduleNotificationsIfEnabled()
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView(authViewModel: authViewModel)
@@ -132,6 +150,23 @@ struct TodayView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onChange(of: scenePhase) { _, newPhase in
+            // Re-derive today's reminders on foreground too, not just first load — otherwise
+            // reopening the app later the same day (or the next day) leaves stale/missing
+            // reminders until some other refresh happens to fire.
+            if newPhase == .active, hasLoadedOnce {
+                scheduleNotificationsIfEnabled()
+            }
+        }
+        .onChange(of: notificationsEnabled) { _, isOn in
+            // SettingsView flips this same @AppStorage key when the toggle is switched on, but
+            // it has no access to today's logs to actually schedule anything — without this,
+            // turning the toggle on schedules nothing until the next unrelated refresh happens to
+            // fire (task/scenePhase/a quick-log tap).
+            if isOn, hasLoadedOnce {
+                scheduleNotificationsIfEnabled()
+            }
+        }
     }
 
     private var header: some View {
@@ -352,6 +387,7 @@ struct TodayView: View {
             await scoreViewModel.refreshTodayScore()
             guard logsViewModel.errorMessage == nil else { return }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
+            scheduleNotificationsIfEnabled()
 
             // 취침을 기록하면 그 시점 데이터로 오늘 리포트를 생성해서 바로 보여준다.
             if type == .sleep {
