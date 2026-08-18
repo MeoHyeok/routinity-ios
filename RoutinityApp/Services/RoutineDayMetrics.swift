@@ -1,0 +1,127 @@
+//
+//  RoutineDayMetrics.swift
+//  RoutinityApp
+//
+
+import Foundation
+
+/// Pure computation over a day's raw logs, extracted out of TodayView so the actual logic — not
+/// just the SwiftUI plumbing around it — is unit-testable. `now` is injectable so tests don't
+/// depend on the real wall clock; call sites default to `Date()`.
+struct RoutineDayMetrics {
+    let wakeOpenSince: Date?
+    let mealOpenSince: Date?
+    let studyOpenSince: Date?
+    let hasLoggedWake: Bool
+    let hasLoggedSleep: Bool
+    let actualWakeTime: Date?
+    let mealCount: Int
+    let totalMealMinutes: Int
+    let totalStudyMinutes: Int
+    let hasClosedMealSession: Bool
+    let hasClosedStudySession: Bool
+    /// Elapsed time since 기상 minus 식사/공부 totals so far — not the backend's post-hoc "휴식
+    /// 시간" (which needs 취침 to define the 기상~취침 window), just today's rest time so far. Nil
+    /// before 기상 is logged, since there's no window to measure from yet.
+    let restMinutesSoFar: Int?
+}
+
+func computeRoutineDayMetrics(from logs: [LogEntry], now: Date = Date()) -> RoutineDayMetrics {
+    let sorted = logs.sorted { $0.timestamp < $1.timestamp }
+
+    // The timestamp of a start-type log that hasn't been closed by its matching end-type log yet
+    // — walks logs in order rather than just comparing counts, so a resumed session always counts
+    // from the real open start, not "now". Shared shape for all three start/end pairs (기상~취침,
+    // 식사 시작~종료, 공부 시작~종료).
+    func openStart(_ startType: LogEntry.LogType, _ endType: LogEntry.LogType) -> Date? {
+        var open: Date?
+        for log in sorted {
+            if log.type == startType { open = log.timestamp }
+            else if log.type == endType { open = nil }
+        }
+        return open
+    }
+
+    func totalMinutes(_ startType: LogEntry.LogType, _ endType: LogEntry.LogType) -> Int {
+        var total = 0
+        var openStart: Date?
+        for log in sorted {
+            if log.type == startType {
+                openStart = log.timestamp
+            } else if log.type == endType, let start = openStart {
+                total += max(0, Int(log.timestamp.timeIntervalSince(start) / 60))
+                openStart = nil
+            }
+        }
+        return total
+    }
+
+    // Whether at least one pair closed today, regardless of duration — lets a metric card tell
+    // "did this for under a minute" apart from "never did this at all," since totalMinutes
+    // truncates to whole minutes and a sub-minute session would otherwise round down to 0 and
+    // look identical to no record existing.
+    func hasClosedSession(_ startType: LogEntry.LogType, _ endType: LogEntry.LogType) -> Bool {
+        var openStart: Date?
+        for log in sorted {
+            if log.type == startType {
+                openStart = log.timestamp
+            } else if log.type == endType, openStart != nil {
+                return true
+            }
+        }
+        return false
+    }
+
+    let totalMealMinutes = totalMinutes(.mealStart, .mealEnd)
+    let totalStudyMinutes = totalMinutes(.studyStart, .studyEnd)
+    let actualWakeTime = sorted.first { $0.type == .wake }?.timestamp
+
+    let restMinutesSoFar: Int? = actualWakeTime.map { firstWake in
+        let elapsed = max(0, Int(now.timeIntervalSince(firstWake) / 60))
+        return max(0, elapsed - totalMealMinutes - totalStudyMinutes)
+    }
+
+    return RoutineDayMetrics(
+        wakeOpenSince: openStart(.wake, .sleep),
+        mealOpenSince: openStart(.mealStart, .mealEnd),
+        studyOpenSince: openStart(.studyStart, .studyEnd),
+        hasLoggedWake: logs.contains { $0.type == .wake },
+        hasLoggedSleep: logs.contains { $0.type == .sleep },
+        actualWakeTime: actualWakeTime,
+        mealCount: logs.filter { $0.type == .mealEnd }.count,
+        totalMealMinutes: totalMealMinutes,
+        totalStudyMinutes: totalStudyMinutes,
+        hasClosedMealSession: hasClosedSession(.mealStart, .mealEnd),
+        hasClosedStudySession: hasClosedSession(.studyStart, .studyEnd),
+        restMinutesSoFar: restMinutesSoFar
+    )
+}
+
+/// Shared duration display: shows "1분 미만" for a genuinely-closed session that rounded down to
+/// 0 whole minutes, so it reads apart from "never happened" rather than looking identical to it.
+func durationLabel(minutes: Int, hasClosedSession: Bool) -> String {
+    if minutes > 0 { return "\(minutes)분" }
+    if hasClosedSession { return "1분 미만" }
+    return "-"
+}
+
+/// Consecutive days (ending with the most recent point) with daily_score ≥ 80 — matches the
+/// "green" threshold used elsewhere in the app as the bar for "achieved". `points` must be sorted
+/// ascending by date (oldest first), so the most recent day is last.
+func computeStreakDays(from points: [DailyTrendPoint]) -> Int {
+    var count = 0
+    for point in points.reversed() {
+        guard let score = point.dailyScore, score >= 80 else { break }
+        count += 1
+    }
+    return count
+}
+
+/// Average daily_score over the window excluding the most recent point (assumed to be "today") —
+/// a personal baseline to compare today's score against, Apple Watch sleep-score style, rather
+/// than only judging against the fixed goal-based score. `points` must be sorted ascending.
+func computePersonalAverageScore(from points: [DailyTrendPoint]) -> Int? {
+    let priorScores = points.dropLast().compactMap { $0.dailyScore }
+    guard !priorScores.isEmpty else { return nil }
+    return Int((Double(priorScores.reduce(0, +)) / Double(priorScores.count)).rounded())
+}

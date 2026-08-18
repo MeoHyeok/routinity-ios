@@ -39,93 +39,25 @@ struct TodayView: View {
         return formatter
     }()
 
-    /// Consecutive days (ending today) with daily_score ≥ 80 — matches the "green" threshold
-    /// already used everywhere else in the app as the bar for "achieved". A single "N개 목표
-    /// 달성" count for today was ambiguous about what it meant or over what period; a streak
-    /// is a clearer, more motivating framing for the same underlying data.
-    private var streakDays: Int {
-        var count = 0
-        for point in streakViewModel.points.reversed() {
-            guard let score = point.dailyScore, score >= 80 else { break }
-            count += 1
-        }
-        return count
+    /// Computed once per render from the raw logs — see RoutineDayMetrics.swift for the actual
+    /// (unit-tested) logic. Consolidating to one call avoids re-sorting/re-walking logsViewModel.logs
+    /// separately for every derived value below.
+    private var dayMetrics: RoutineDayMetrics {
+        computeRoutineDayMetrics(from: logsViewModel.logs)
     }
 
-    private var mealCount: Int {
-        logsViewModel.logs.filter { $0.type == .mealEnd }.count
-    }
+    private var streakDays: Int { computeStreakDays(from: streakViewModel.points) }
 
-    private var hasLoggedWakeToday: Bool { logsViewModel.logs.contains { $0.type == .wake } }
-    private var hasLoggedSleepToday: Bool { logsViewModel.logs.contains { $0.type == .sleep } }
-
-    /// The day's first 기상 log, shown regardless of whether a wake goal is even set — the
-    /// metric card was only reading /scores entries, which only exist when a goal is configured
-    /// for that type, so a user with no goal saw "-" even right after actually logging 기상.
     private var actualWakeTimeLabel: String? {
-        let wakeLogs = logsViewModel.logs.filter { $0.type == .wake }.sorted { $0.timestamp < $1.timestamp }
-        guard let first = wakeLogs.first else { return nil }
-        return Self.timeOnlyFormatter.string(from: first.timestamp)
+        dayMetrics.actualWakeTime.map { Self.timeOnlyFormatter.string(from: $0) }
     }
 
-    /// Sum of minutes across all closed startType~endType pairs today, computed straight from
-    /// logs so it's visible independent of any goal — shared by 공부/식사, which both follow the
-    /// same start/end pair shape.
-    private func totalMinutes(startType: LogEntry.LogType, endType: LogEntry.LogType) -> Int {
-        var total = 0
-        var openStart: Date?
-        for log in logsViewModel.logs.sorted(by: { $0.timestamp < $1.timestamp }) {
-            if log.type == startType {
-                openStart = log.timestamp
-            } else if log.type == endType, let start = openStart {
-                total += max(0, Int(log.timestamp.timeIntervalSince(start) / 60))
-                openStart = nil
-            }
-        }
-        return total
-    }
-
-    /// Whether at least one pair closed today, regardless of duration — lets a metric card tell
-    /// "did this for under a minute" apart from "never did this at all," since totalMinutes
-    /// truncates to whole minutes and a sub-minute session would otherwise silently round down to
-    /// 0 and look identical to no record existing.
-    private func hasClosedSession(startType: LogEntry.LogType, endType: LogEntry.LogType) -> Bool {
-        var openStart: Date?
-        for log in logsViewModel.logs.sorted(by: { $0.timestamp < $1.timestamp }) {
-            if log.type == startType {
-                openStart = log.timestamp
-            } else if log.type == endType, openStart != nil {
-                return true
-            }
-        }
-        return false
-    }
-
-    private func durationLabel(minutes: Int, hasClosedSession: Bool) -> String {
-        if minutes > 0 { return "\(minutes)분" }
-        if hasClosedSession { return "1분 미만" }
-        return "-"
-    }
-
-    private var totalStudyMinutesToday: Int { totalMinutes(startType: .studyStart, endType: .studyEnd) }
     private var studyMinutesLabel: String {
-        durationLabel(minutes: totalStudyMinutesToday, hasClosedSession: hasClosedSession(startType: .studyStart, endType: .studyEnd))
+        durationLabel(minutes: dayMetrics.totalStudyMinutes, hasClosedSession: dayMetrics.hasClosedStudySession)
     }
 
-    private var totalMealMinutesToday: Int { totalMinutes(startType: .mealStart, endType: .mealEnd) }
     private var mealMinutesLabel: String {
-        durationLabel(minutes: totalMealMinutesToday, hasClosedSession: hasClosedSession(startType: .mealStart, endType: .mealEnd))
-    }
-
-    /// A running snapshot of unaccounted time since 기상 (elapsed time minus 식사/공부 totals so
-    /// far) — not the backend's post-hoc "휴식 시간" (which needs 취침 to define the 기상~취침
-    /// window and only exists once a report is generated), just today's rest time so far. Nil
-    /// before 기상 is logged, since there's no window to measure from yet.
-    private var restMinutesSoFarToday: Int? {
-        let wakeLogs = logsViewModel.logs.filter { $0.type == .wake }.sorted { $0.timestamp < $1.timestamp }
-        guard let firstWake = wakeLogs.first else { return nil }
-        let elapsed = max(0, Int(Date().timeIntervalSince(firstWake.timestamp) / 60))
-        return max(0, elapsed - totalMealMinutesToday - totalStudyMinutesToday)
+        durationLabel(minutes: dayMetrics.totalMealMinutes, hasClosedSession: dayMetrics.hasClosedMealSession)
     }
 
     /// Re-derives today's reminders from whatever's currently loaded — cheap enough to call
@@ -134,43 +66,17 @@ struct TodayView: View {
     private func scheduleNotificationsIfEnabled() {
         guard notificationsEnabled else { return }
         NotificationManager.scheduleTodayReminders(
-            hasLoggedWake: hasLoggedWakeToday,
-            hasLoggedSleep: hasLoggedSleepToday,
+            hasLoggedWake: dayMetrics.hasLoggedWake,
+            hasLoggedSleep: dayMetrics.hasLoggedSleep,
             wakeGoalTime: scoreViewModel.entry(for: GoalTargetType.wakeTime)?.targetValue
         )
     }
 
-    /// Average daily_score over the streak window excluding today (streakViewModel.points is
-    /// sorted ascending, so today is always the last point) — gives a personal baseline to
-    /// compare today's score against, Apple Watch sleep-score style, rather than only judging
-    /// against the fixed goal-based score.
-    private var personalAverageScore: Int? {
-        let priorScores = streakViewModel.points.dropLast().compactMap { $0.dailyScore }
-        guard !priorScores.isEmpty else { return nil }
-        return Int((Double(priorScores.reduce(0, +)) / Double(priorScores.count)).rounded())
-    }
-
     private var personalScoreDelta: Int? {
-        guard let today = scoreViewModel.dailyScore, let baseline = personalAverageScore else { return nil }
+        guard let today = scoreViewModel.dailyScore,
+              let baseline = computePersonalAverageScore(from: streakViewModel.points) else { return nil }
         return today - baseline
     }
-
-    /// The timestamp of a start-type log that hasn't been closed by its matching end-type log
-    /// yet today — walks logs in order rather than just comparing counts, so a resumed session
-    /// always counts from the real open start, not "now". Used for all three start/end pairs
-    /// (기상~취침, 식사 시작~종료, 공부 시작~종료), which all follow the same shape.
-    private func openStart(_ startType: LogEntry.LogType, _ endType: LogEntry.LogType) -> Date? {
-        var open: Date?
-        for log in logsViewModel.logs.sorted(by: { $0.timestamp < $1.timestamp }) {
-            if log.type == startType { open = log.timestamp }
-            else if log.type == endType { open = nil }
-        }
-        return open
-    }
-
-    private var wakeOpenSince: Date? { openStart(.wake, .sleep) }
-    private var mealOpenSince: Date? { openStart(.mealStart, .mealEnd) }
-    private var studyOpenSince: Date? { openStart(.studyStart, .studyEnd) }
 
     var body: some View {
         NavigationStack {
@@ -360,14 +266,14 @@ struct TodayView: View {
 
     /// Meal and rest share this card slot as two separate numbers rather than one merged figure
     /// (넓게 보면 식사도 휴식의 일종) — 휴식 is a running snapshot since 기상 (see
-    /// restMinutesSoFarToday), so it reads "-" until 기상 is logged. Each row reuses the same
-    /// icon-badge + bold-value language as metricCard, just twice at half height, so this card
-    /// doesn't read as a different visual style stacked next to 기상/공부.
+    /// RoutineDayMetrics.restMinutesSoFar), so it reads "-" until 기상 is logged. Each row reuses
+    /// the same icon-badge + bold-value language as metricCard, just twice at half height, so this
+    /// card doesn't read as a different visual style stacked next to 기상/공부.
     private var mealRestCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             mealRestRow(icon: "fork.knife", tint: .routinityPink, value: mealMinutesLabel, label: "식사")
             Spacer(minLength: 0)
-            mealRestRow(icon: "cup.and.saucer.fill", tint: .routinityViolet, value: restMinutesSoFarToday.map { "\($0)분" } ?? "-", label: "휴식")
+            mealRestRow(icon: "cup.and.saucer.fill", tint: .routinityViolet, value: dayMetrics.restMinutesSoFar.map { "\($0)분" } ?? "-", label: "휴식")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .routinityCard(padding: 12)
@@ -424,19 +330,19 @@ struct TodayView: View {
 
             // 기상↔취침: 취침을 기록하면 그 즉시 오늘 리포트를 생성해서 보여준다. 하루의 시작이라
             // 다른 버튼들과 달리 절대 잠기지 않는다.
-            toggleLogButton(startType: .wake, endType: .sleep, openSince: wakeOpenSince, showsStopwatch: false, isLocked: false)
+            toggleLogButton(startType: .wake, endType: .sleep, openSince: dayMetrics.wakeOpenSince, showsStopwatch: false, isLocked: false)
 
             // 식사 시작↔종료: 지금 깨어있는 상태(기상~취침 사이)가 아니거나 공부가 진행 중이면 잠금 —
             // 취침을 기록한 뒤에는 그날의 활동이 끝난 것이므로 다시 기상하기 전까진 잠긴 채로 둔다.
             toggleLogButton(
-                startType: .mealStart, endType: .mealEnd, openSince: mealOpenSince, showsStopwatch: false,
-                isLocked: wakeOpenSince == nil || studyOpenSince != nil
+                startType: .mealStart, endType: .mealEnd, openSince: dayMetrics.mealOpenSince, showsStopwatch: false,
+                isLocked: dayMetrics.wakeOpenSince == nil || dayMetrics.studyOpenSince != nil
             )
 
             // 공부 시작↔종료: 지금 깨어있는 상태가 아니거나 식사가 진행 중이면 잠금. 진행 중일 때 실시간 스톱워치 표시.
             toggleLogButton(
-                startType: .studyStart, endType: .studyEnd, openSince: studyOpenSince, showsStopwatch: true,
-                isLocked: wakeOpenSince == nil || mealOpenSince != nil
+                startType: .studyStart, endType: .studyEnd, openSince: dayMetrics.studyOpenSince, showsStopwatch: true,
+                isLocked: dayMetrics.wakeOpenSince == nil || dayMetrics.mealOpenSince != nil
             )
         }
     }

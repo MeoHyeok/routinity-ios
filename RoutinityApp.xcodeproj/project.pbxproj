@@ -10,6 +10,7 @@
 		69BE3DF53556FA92D7F3442C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E25BA33FF5BD45446B10A335 /* Foundation.framework */; };
 		AE5BF523A0715B0565613EEB /* GoalSuggestionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66956B526030443930EE577E /* GoalSuggestionTests.swift */; };
 		F4E50DF96E3A23FA2CD1700C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = E05667D6397CB90A1563DA24 /* Supabase */; };
+		F7DEA4DF93CFDC3DEB8481D8 /* RoutineDayMetricsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB291B9B349F202F36BD88D /* RoutineDayMetricsTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -24,6 +25,7 @@
 
 /* Begin PBXFileReference section */
 		14B828EBDC9AB45EBE1386A2 /* RoutinityAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RoutinityAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3EB291B9B349F202F36BD88D /* RoutineDayMetricsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RoutineDayMetricsTests.swift; path = RoutinityAppTests/RoutineDayMetricsTests.swift; sourceTree = "<group>"; };
 		66956B526030443930EE577E /* GoalSuggestionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GoalSuggestionTests.swift; path = RoutinityAppTests/GoalSuggestionTests.swift; sourceTree = "<group>"; };
 		6D09639A302C6921009C14A4 /* RoutinityApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RoutinityApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E25BA33FF5BD45446B10A335 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -71,6 +73,7 @@
 			isa = PBXGroup;
 			children = (
 				66956B526030443930EE577E /* GoalSuggestionTests.swift */,
+				3EB291B9B349F202F36BD88D /* RoutineDayMetricsTests.swift */,
 			);
 			name = RoutinityAppTests;
 			sourceTree = "<group>";
@@ -214,6 +217,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AE5BF523A0715B0565613EEB /* GoalSuggestionTests.swift in Sources */,
+				F7DEA4DF93CFDC3DEB8481D8 /* RoutineDayMetricsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
