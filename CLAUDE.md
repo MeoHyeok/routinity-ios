@@ -64,8 +64,12 @@ There's no `Package.swift` to edit — add packages the same way `supabase-swift
 - Swift version: 5.0
 - Bundle ID: `com.meohyeok.RoutinityApp`
 
-There is no test target yet. Once one is added, run tests with:
+### Tests
+
+`RoutinityAppTests` (Swift Testing, not XCTest) covers pure logic extracted into `RoutinityApp/Services/` — e.g. `GoalSuggestion.swift`. It is a plain `PBXGroup`, not a synchronized folder like the main app target, so a new test file needs to be added to the target in Xcode (or via the `xcodeproj` Ruby gem) rather than just dropping it in the directory.
+
+`-sdk iphonesimulator` alone leaves `xcodebuild` to guess a destination, which resolves to the generic "Any iOS Simulator Device" placeholder and fails outright for `test` (only `build` tolerates it) — an explicit simulator destination is required:
 
 ```bash
-xcodebuild -project RoutinityApp.xcodeproj -scheme RoutinityApp -sdk iphonesimulator test
+xcodebuild -project RoutinityApp.xcodeproj -scheme RoutinityApp -destination 'platform=iOS Simulator,name=iPhone 17 Pro' test
 ```

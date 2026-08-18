@@ -7,16 +7,33 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		69BE3DF53556FA92D7F3442C /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E25BA33FF5BD45446B10A335 /* Foundation.framework */; };
+		AE5BF523A0715B0565613EEB /* GoalSuggestionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66956B526030443930EE577E /* GoalSuggestionTests.swift */; };
 		F4E50DF96E3A23FA2CD1700C /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = E05667D6397CB90A1563DA24 /* Supabase */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		6B6C7402E824E26667BF77B3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6D096392302C6921009C14A4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6D096399302C6921009C14A4;
+			remoteInfo = RoutinityApp;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		14B828EBDC9AB45EBE1386A2 /* RoutinityAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RoutinityAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		66956B526030443930EE577E /* GoalSuggestionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GoalSuggestionTests.swift; path = RoutinityAppTests/GoalSuggestionTests.swift; sourceTree = "<group>"; };
 		6D09639A302C6921009C14A4 /* RoutinityApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RoutinityApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E25BA33FF5BD45446B10A335 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6D09639C302C6921009C14A4 /* RoutinityApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = RoutinityApp;
 			sourceTree = "<group>";
 		};
@@ -31,14 +48,40 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		98472F2C2E2BE33E26901C9D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				69BE3DF53556FA92D7F3442C /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		112B16A5C0779156352D7A80 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				E25BA33FF5BD45446B10A335 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		3E4ECF34B897E2A0A02989F0 /* RoutinityAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				66956B526030443930EE577E /* GoalSuggestionTests.swift */,
+			);
+			name = RoutinityAppTests;
+			sourceTree = "<group>";
+		};
 		6D096391302C6921009C14A4 = {
 			isa = PBXGroup;
 			children = (
 				6D09639C302C6921009C14A4 /* RoutinityApp */,
 				6D09639B302C6921009C14A4 /* Products */,
+				DC02B0D48DA70AC11C325BF8 /* Frameworks */,
+				3E4ECF34B897E2A0A02989F0 /* RoutinityAppTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -46,8 +89,17 @@
 			isa = PBXGroup;
 			children = (
 				6D09639A302C6921009C14A4 /* RoutinityApp.app */,
+				14B828EBDC9AB45EBE1386A2 /* RoutinityAppTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		DC02B0D48DA70AC11C325BF8 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				112B16A5C0779156352D7A80 /* iOS */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -75,6 +127,24 @@
 			productName = RoutinityApp;
 			productReference = 6D09639A302C6921009C14A4 /* RoutinityApp.app */;
 			productType = "com.apple.product-type.application";
+		};
+		ECCCD71410CE7AB546D19C57 /* RoutinityAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E62A433232B69B9C980856A1 /* Build configuration list for PBXNativeTarget "RoutinityAppTests" */;
+			buildPhases = (
+				7FFF926145A5614BC30AB957 /* Sources */,
+				98472F2C2E2BE33E26901C9D /* Frameworks */,
+				E6887DDC5D1D71FDF1A5EE49 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D311918AE2D9CDADB3F53429 /* PBXTargetDependency */,
+			);
+			name = RoutinityAppTests;
+			productName = RoutinityAppTests;
+			productReference = 14B828EBDC9AB45EBE1386A2 /* RoutinityAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -109,12 +179,20 @@
 			projectRoot = "";
 			targets = (
 				6D096399302C6921009C14A4 /* RoutinityApp */,
+				ECCCD71410CE7AB546D19C57 /* RoutinityAppTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		6D096398302C6921009C14A4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E6887DDC5D1D71FDF1A5EE49 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -131,9 +209,46 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7FFF926145A5614BC30AB957 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE5BF523A0715B0565613EEB /* GoalSuggestionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		D311918AE2D9CDADB3F53429 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = RoutinityApp;
+			target = 6D096399302C6921009C14A4 /* RoutinityApp */;
+			targetProxy = 6B6C7402E824E26667BF77B3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		4FEB2488CE69EB7430B10C37 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NK727ZD88G;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.meohyeok.RoutinityAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RoutinityApp.app/RoutinityApp";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		6D0963A3302C6922009C14A4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -336,6 +451,25 @@
 			};
 			name = Release;
 		};
+		C1DEA95D5D6DC66AF78649AF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NK727ZD88G;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.meohyeok.RoutinityAppTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RoutinityApp.app/RoutinityApp";
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -353,6 +487,15 @@
 			buildConfigurations = (
 				6D0963A6302C6922009C14A4 /* Debug */,
 				6D0963A7302C6922009C14A4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E62A433232B69B9C980856A1 /* Build configuration list for PBXNativeTarget "RoutinityAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4FEB2488CE69EB7430B10C37 /* Release */,
+				C1DEA95D5D6DC66AF78649AF /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
