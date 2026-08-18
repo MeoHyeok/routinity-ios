@@ -360,29 +360,35 @@ struct TodayView: View {
 
     /// Meal and rest share this card slot as two separate numbers rather than one merged figure
     /// (넓게 보면 식사도 휴식의 일종) — 휴식 is a running snapshot since 기상 (see
-    /// restMinutesSoFarToday), so it reads "-" until 기상 is logged.
+    /// restMinutesSoFarToday), so it reads "-" until 기상 is logged. Each row reuses the same
+    /// icon-badge + bold-value language as metricCard, just twice at half height, so this card
+    /// doesn't read as a different visual style stacked next to 기상/공부.
     private var mealRestCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            mealRestRow(icon: "fork.knife", tint: .routinityPink, label: "식사", value: mealMinutesLabel)
-            mealRestRow(icon: "cup.and.saucer.fill", tint: .routinityViolet, label: "휴식", value: restMinutesSoFarToday.map { "\($0)분" } ?? "-")
+        VStack(alignment: .leading, spacing: 12) {
+            mealRestRow(icon: "fork.knife", tint: .routinityPink, value: mealMinutesLabel, label: "식사")
+            mealRestRow(icon: "cup.and.saucer.fill", tint: .routinityViolet, value: restMinutesSoFarToday.map { "\($0)분" } ?? "-", label: "휴식")
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .routinityCard(padding: 12)
     }
 
-    private func mealRestRow(icon: String, tint: Color, label: String, value: String) -> some View {
-        HStack(spacing: 6) {
+    private func mealRestRow(icon: String, tint: Color, value: String, label: String) -> some View {
+        HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.caption2)
-                .foregroundStyle(tint)
-                .frame(width: 16)
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .font(.caption.weight(.semibold))
                 .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(tint.opacity(0.35), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
