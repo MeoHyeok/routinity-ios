@@ -51,6 +51,12 @@ final class TrendViewModel: ObservableObject {
         return formatter
     }()
 
+    // Each day costs one /scores + one /logs call, both rate-limited at 60/min. Firing all of
+    // them at once (e.g. 30 for the monthly window) can trip that limit on its own, on top of
+    // whatever else is in flight on the same screen, so in-flight requests are capped here rather
+    // than trusting every call site to pick a small enough `days`.
+    private static let maxConcurrentDays = 10
+
     func loadTrend(days: Int) async {
         errorMessage = nil
         isLoading = true
@@ -63,12 +69,18 @@ final class TrendViewModel: ObservableObject {
 
         do {
             let fetched = try await withThrowingTaskGroup(of: DailyTrendPoint.self) { group in
-                for date in dates {
+                var remaining = dates[...]
+                var results: [DailyTrendPoint] = []
+                for date in remaining.prefix(Self.maxConcurrentDays) {
                     group.addTask { try await self.fetchDay(date) }
                 }
-                var results: [DailyTrendPoint] = []
+                remaining = remaining.dropFirst(Self.maxConcurrentDays)
                 for try await point in group {
                     results.append(point)
+                    if let next = remaining.first {
+                        remaining = remaining.dropFirst()
+                        group.addTask { try await self.fetchDay(next) }
+                    }
                 }
                 return results
             }
