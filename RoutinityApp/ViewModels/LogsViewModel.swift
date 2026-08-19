@@ -64,7 +64,16 @@ final class LogsViewModel: ObservableObject {
         case FunctionsError.httpError(let code, _):
             return code >= 500
         default:
-            return (error as? URLError)?.code != nil
+            // `/logs` isn't idempotent, so only retry failures that mean the request never
+            // reached the server — codes like `.timedOut` or `.networkConnectionLost` are
+            // ambiguous about whether the server already processed the POST, and retrying those
+            // risks writing the same log twice.
+            switch (error as? URLError)?.code {
+            case .notConnectedToInternet, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
+                return true
+            default:
+                return false
+            }
         }
     }
 
