@@ -9,6 +9,19 @@ struct TimelineView: View {
     @StateObject private var logsViewModel = LogsViewModel()
     @State private var selectedDate = Date()
 
+    /// `DatePicker` hands back a `Date` anchored to whatever calendar day it displayed, using the
+    /// *device's* timezone — reformatting that instant through a KST-pinned formatter (as
+    /// `loadLogs` does) can land on a different calendar date whenever the device's UTC offset is
+    /// ahead of KST's (+9): e.g. local midnight of a picked day in a UTC+13 zone is still the
+    /// previous day in KST. Re-anchoring to noon KST of the same Y/M/D the picker displayed keeps
+    /// the queried date matching what's on screen regardless of device timezone.
+    private func kstAnchoredDate(from date: Date) -> Date {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        var kstCalendar = Calendar(identifier: .gregorian)
+        kstCalendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        return kstCalendar.date(from: DateComponents(year: components.year, month: components.month, day: components.day, hour: 12)) ?? date
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             DatePicker("날짜", selection: $selectedDate, in: ...Date(), displayedComponents: .date)
@@ -67,7 +80,7 @@ struct TimelineView: View {
         .navigationTitle("타임라인")
         .background(Color.routinityBackground)
         .task(id: selectedDate) {
-            await logsViewModel.loadLogs(on: selectedDate)
+            await logsViewModel.loadLogs(on: kstAnchoredDate(from: selectedDate))
         }
     }
 }
