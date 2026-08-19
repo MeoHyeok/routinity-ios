@@ -23,6 +23,10 @@ ROADMAP.md 2번 섹션의 초안을 실제 구현에 맞춰 확정한 문서. �
 
 이 모델을 따르는 엔드포인트: `GET /logs`, `GET /scores` (`date=` 파라미터가 "그 KST 날짜에 기상한 세션"을 찾음), `GET /reports-daily`(항상 "오늘"의 세션, 아래 참고), `/reports-weekly`·`/reports-monthly`·`/insights`(윈도우 내 세션들을 집계).
 
+**엔드포인트 간 세션 불일치 수정 (2026-08-19, iOS 통합 테스트 중 발견)**: 세션 방식으로 바뀐 뒤에도, 각 엔드포인트가 세션을 계산하기 전에 로그를 얼마나 과거까지 조회하는지가 엔드포인트마다 달랐음 — `/reports-daily`는 "어제 KST 자정"부터, `GET /logs?date=`·`/scores`는 조회하는 그 날짜의 KST 자정부터(과거 조회 없음)만 로그를 가져왔음. 그 결과 취침 로그 없이 다음 KST 날짜로 넘어간 열린 세션이 있을 때, 조회 범위가 그 세션의 시작(기상) 시점을 포함하는 엔드포인트는 "오늘 세션 없음"으로 올바르게 판정하지만, 포함하지 않는 엔드포인트는 다음 날의 기상 로그를 (잘못) 새 세션으로 오판해서 — 같은 계정, 같은 로그인데 `GET /logs?date=`엔 기상 로그가 보이고 `/reports-daily`엔 "기록 없음"으로 나오는 불일치가 발생함. `SESSION_LOOKBACK_MS`(24시간)를 도입해 세션 계산 전 로그 조회 범위를 모든 day-bucketing 엔드포인트(`/logs`, `/scores`, `/reports-daily`, `/reports-weekly`, `/reports-monthly`, `/insights`)에서 일관되게 24시간 더 과거로 확장 — 이 값이 세션 하나가 "새 기상 로그를 계속 흡수하며 살아있을 수 있는" 최대 시간과 같기 때문에, 이만큼만 과거로 봐도 전체 로그 히스토리를 다 봤을 때와 동일한 세션 판정이 보장됨. 응답 필드/형식 변경 없음, 세션 판정 로직만 통일.
+
+**`autoClosed`(자동 종료), 2026-08-19**: 취침 로그를 아예 안 남기는 계정은 위 수정 이후에도 그 세션이 영원히 "열린 채"로 남는 문제가 있었음(다음 기상 로그가 24시간 이상 지나서 와야만 강제로 분리됨). `computeDaySessions`가 이제 마지막으로 열려 있는 세션에 대해, 열린 지 24시간이 지나면(=세션을 처음 연 기상 로그의 timestamp 기준, 그 뒤 흡수된 기상 로그로 갱신되지 않음) 내부적으로 "자동 종료"로 표시함. **API 응답으로는 노출되지 않는 순수 내부 계산값**이며, 실제 `sleep` 로그를 합성해서 DB에 넣지도 않음(그 세션의 `daily_score`엔 영향 없고, `time_breakdown`은 실제 취침 시각을 모르므로 계속 `null`). 클라이언트가 "곧 자동 마감된다"는 걸 보여주려면 서버 필드 없이 그 세션의 첫 기상 로그 timestamp(`GET /logs?date=` 응답의 첫 로그) + 24시간으로 직접 계산하면 됨.
+
 ## POST /functions/v1/logs
 
 이벤트 기록 (기상/취침/식사 시작·종료/공부 시작·종료)
@@ -332,3 +336,5 @@ Authorization: Bearer <access_token>
 ## 구현 완료
 
 로드맵의 4개 엔드포인트(`/logs`, `/goals`, `/scores`, `/reports-weekly`)를 시작으로, 삭제 기능(`DELETE /logs`, `DELETE /goals`), `daily_score`, `/reports-daily`, `/insights`, 리포트 패턴 반영, `/reports-monthly`, `time_breakdown`/`suggested_action`, 그리고 하루를 고정 시각 경계 대신 KST 세션으로 재정의한 것까지 전부 프로덕션에 배포·테스트 완료. iOS 클라이언트도 세 곳(LogsViewModel/ScoreViewModel/TrendViewModel)의 날짜 계산을 전부 KST 세션 모델에 맞춰 전환됨.
+
+**2026-08-19**: iOS 통합 테스트 중 발견된 엔드포인트 간 세션 판정 불일치를 `SESSION_LOOKBACK_MS`로 수정, 취침 로그가 없는 세션의 내부 `autoClosed`(24시간) 처리 추가 — 둘 다 "하루의 정의" 섹션 참고. iOS 클라이언트도 LogsViewModel에 `loadTodayIncludingCarryover`를 추가해 취침 미기록으로 다음 KST 날짜까지 넘어간 열린 세션을 TodayView에서 인식하고, 자동 종료까지 남은 시간을 안내하는 배너를 표시하도록 대응.
