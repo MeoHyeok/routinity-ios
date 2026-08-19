@@ -118,7 +118,9 @@ final class LogsViewModel: ObservableObject {
     func loadTodayIncludingCarryover() async {
         await loadLogs(on: Date())
         guard errorMessage == nil, !logs.contains(where: { $0.type == .wake }) else { return }
-        guard let yesterday = Calendar(identifier: .gregorian).date(byAdding: .day, value: -1, to: Date()) else { return }
+        var kstCalendar = Calendar(identifier: .gregorian)
+        kstCalendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        guard let yesterday = kstCalendar.date(byAdding: .day, value: -1, to: Date()) else { return }
 
         // A failure here shouldn't surface as an error or override today's (empty but valid)
         // state — today's own load already succeeded, this is just a best-effort extra check.
