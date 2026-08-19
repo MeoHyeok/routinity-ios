@@ -46,10 +46,16 @@ final class GoalsViewModel: ObservableObject {
         isSaving = true
         defer { isSaving = false }
 
-        var saveError: Error?
+        // Attempted independently so one field failing to save (e.g. a transient network error)
+        // doesn't stop the other field's edit from ever being sent.
         var savedAnything = false
+        var saveError: Error?
         do {
             savedAnything = try await upsert(type: GoalTargetType.wakeTime, value: wakeTime)
+        } catch {
+            saveError = error
+        }
+        do {
             savedAnything = try await upsert(type: GoalTargetType.studyDuration, value: studyMinutes) || savedAnything
         } catch {
             saveError = error
