@@ -75,14 +75,20 @@ func computeRoutineDayMetrics(from logs: [LogEntry], now: Date = Date()) -> Rout
     let totalMealMinutes = totalMinutes(.mealStart, .mealEnd)
     let totalStudyMinutes = totalMinutes(.studyStart, .studyEnd)
     let actualWakeTime = sorted.first { $0.type == .wake }?.timestamp
+    let wakeOpenSince = openStart(.wake, .sleep)
 
+    // Once 취침 closes the session, "so far" should stop at that moment — otherwise reopening the
+    // app later the same KST day (before a new 기상) keeps counting 휴식 upward past the point the
+    // user told the app they'd gone to bed. Only applies while the session is actually closed
+    // (wakeOpenSince == nil); if a later 기상 reopened it, count through to `now` as usual.
     let restMinutesSoFar: Int? = actualWakeTime.map { firstWake in
-        let elapsed = max(0, Int(now.timeIntervalSince(firstWake) / 60))
+        let end = wakeOpenSince == nil ? (sorted.last { $0.type == .sleep }?.timestamp ?? now) : now
+        let elapsed = max(0, Int(end.timeIntervalSince(firstWake) / 60))
         return max(0, elapsed - totalMealMinutes - totalStudyMinutes)
     }
 
     return RoutineDayMetrics(
-        wakeOpenSince: openStart(.wake, .sleep),
+        wakeOpenSince: wakeOpenSince,
         mealOpenSince: openStart(.mealStart, .mealEnd),
         studyOpenSince: openStart(.studyStart, .studyEnd),
         hasLoggedWake: logs.contains { $0.type == .wake },

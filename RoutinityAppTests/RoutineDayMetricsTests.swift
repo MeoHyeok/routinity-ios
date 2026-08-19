@@ -84,6 +84,25 @@ struct RoutineDayMetricsTests {
         #expect(metrics.restMinutesSoFar == 0)
     }
 
+    @Test func restStopsAccumulatingOnceTheSessionIsClosedBySleep() {
+        // 기상 at t=0, 취침 at t=60. Reopening the app much later the same KST day (no new
+        // 기상) shouldn't make 휴식 keep growing past the moment 취침 was logged.
+        let logs = [log(.wake, 0), log(.sleep, 60)]
+        let now = base.addingTimeInterval(180 * 60) // reopened 2 hours after 취침
+        let metrics = computeRoutineDayMetrics(from: logs, now: now)
+        #expect(metrics.restMinutesSoFar == 60) // capped at the 취침 timestamp, not `now`
+    }
+
+    @Test func restResumesAccumulatingAfterASameDayReopenWake() {
+        // 기상 → 취침 → 기상 again (session reopened, still no matching 취침 for the new wake) —
+        // rest should count through to `now` again, not stay capped at the earlier 취침.
+        let logs = [log(.wake, 0), log(.sleep, 60), log(.wake, 90)]
+        let now = base.addingTimeInterval(150 * 60)
+        let metrics = computeRoutineDayMetrics(from: logs, now: now)
+        #expect(metrics.wakeOpenSince != nil)
+        #expect(metrics.restMinutesSoFar == 150) // elapsed since the *first* 기상 (t=0) to `now`
+    }
+
     @Test func durationLabelPrefersMinutesThenSubMinuteThenDash() {
         #expect(durationLabel(minutes: 5, hasClosedSession: true) == "5분")
         #expect(durationLabel(minutes: 0, hasClosedSession: true) == "1분 미만")
