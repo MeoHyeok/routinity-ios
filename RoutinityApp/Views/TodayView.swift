@@ -20,9 +20,13 @@ struct TodayView: View {
     @AppStorage("notificationsEnabled") private var notificationsEnabled = false
     @Environment(\.scenePhase) private var scenePhase
 
+    // The session shown below this header is keyed off the KST calendar date (see the KST
+    // session model in docs/api-contract.md), so the header has to agree with it even on a
+    // device set to a non-KST time zone.
     private static let dateHeadingFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy. MM. dd"
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
         return formatter
     }()
 
@@ -30,6 +34,7 @@ struct TodayView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE"
         formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
         return formatter
     }()
 
