@@ -55,10 +55,17 @@ final class GoalsViewModel: ObservableObject {
         } catch {
             saveError = error
         }
-        do {
-            savedAnything = try await upsert(type: GoalTargetType.studyDuration, value: studyMinutes) || savedAnything
-        } catch {
-            saveError = error
+        // .numberPad only changes the on-screen keyboard — paste and hardware keyboards still let
+        // non-numeric text through, and the server's own validation error is raw/ungrammatical
+        // Korean if left to surface on its own, so catch it here instead of round-tripping.
+        if !studyMinutes.isEmpty, !isPositiveIntegerString(studyMinutes) {
+            saveError = saveError ?? GoalsValidationError.invalidStudyMinutes
+        } else {
+            do {
+                savedAnything = try await upsert(type: GoalTargetType.studyDuration, value: studyMinutes) || savedAnything
+            } catch {
+                saveError = error
+            }
         }
 
         // Re-sync from the server regardless of success/failure so the UI never drifts from
@@ -107,5 +114,23 @@ final class GoalsViewModel: ObservableObject {
         let request = GoalUpsertRequest(targetType: type, targetValue: value)
         let _: Goal = try await client.functions.invoke("goals", options: .init(body: request))
         return true
+    }
+}
+
+/// Mirrors the server's own `target_value must be a positive integer (minutes)` rule for
+/// `study_duration` (see docs/api-contract.md), checked client-side first.
+private func isPositiveIntegerString(_ value: String) -> Bool {
+    guard let number = Int(value.trimmingCharacters(in: .whitespaces)), number >= 1 else { return false }
+    return true
+}
+
+private enum GoalsValidationError: LocalizedError {
+    case invalidStudyMinutes
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidStudyMinutes:
+            return "공부 시간 목표는 1 이상의 숫자(분)로 입력해주세요."
+        }
     }
 }
