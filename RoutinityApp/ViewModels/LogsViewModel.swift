@@ -13,6 +13,9 @@ final class LogsViewModel: ObservableObject {
     @Published private(set) var isRecording: LogEntry.LogType?
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
+    /// Whether `logs` is actually yesterday's still-open session rather than today's — see
+    /// `loadTodayIncludingCarryover`.
+    @Published private(set) var isCarryoverSession = false
 
     private let client = SupabaseManager.client
     private static let isoFormatter = ISO8601DateFormatter()
@@ -37,7 +40,7 @@ final class LogsViewModel: ObservableObject {
 
         do {
             let _: LogEntry = try await client.functions.invoke("logs", options: .init(body: request))
-            await loadLogs(on: Date())
+            await loadTodayIncludingCarryover()
         } catch {
             // Edge Functions cold-start after a few idle minutes, which surfaces as a transient
             // 502/relay error on exactly the tap that's most likely to be the day's first —
@@ -50,7 +53,7 @@ final class LogsViewModel: ObservableObject {
             do {
                 try await Task.sleep(nanoseconds: 800_000_000)
                 let _: LogEntry = try await client.functions.invoke("logs", options: .init(body: request))
-                await loadLogs(on: Date())
+                await loadTodayIncludingCarryover()
             } catch {
                 errorMessage = friendlyErrorMessage(error)
             }
@@ -97,14 +100,40 @@ final class LogsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let dateKey = Self.dateKeyFormatter.string(from: date)
-            let logs: [LogEntry] = try await client.functions.invoke(
-                "logs",
-                options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
-            )
-            self.logs = logs
+            logs = try await fetchLogs(on: date)
+            isCarryoverSession = false
         } catch {
             errorMessage = friendlyErrorMessage(error)
         }
+    }
+
+    /// Loads today's KST session, same as `loadLogs(on: Date())`, but with one fallback: a
+    /// session is labeled by the KST date of the 기상 log that opened it (see the KST session
+    /// model in docs/api-contract.md), so a user who wakes up, never logs 취침, and reopens the
+    /// app after KST midnight would otherwise see an empty "오늘" — their session is still open,
+    /// it's just filed under yesterday's date. When today's own fetch has no 기상 at all, this
+    /// checks yesterday for a still-open session and shows that instead, so the quick-log buttons
+    /// and metric cards reflect the session actually in progress rather than looking like nothing
+    /// was ever logged.
+    func loadTodayIncludingCarryover() async {
+        await loadLogs(on: Date())
+        guard errorMessage == nil, !logs.contains(where: { $0.type == .wake }) else { return }
+        guard let yesterday = Calendar(identifier: .gregorian).date(byAdding: .day, value: -1, to: Date()) else { return }
+
+        // A failure here shouldn't surface as an error or override today's (empty but valid)
+        // state — today's own load already succeeded, this is just a best-effort extra check.
+        guard let yesterdayLogs = try? await fetchLogs(on: yesterday),
+              computeRoutineDayMetrics(from: yesterdayLogs).wakeOpenSince != nil else { return }
+
+        logs = yesterdayLogs
+        isCarryoverSession = true
+    }
+
+    private func fetchLogs(on date: Date) async throws -> [LogEntry] {
+        let dateKey = Self.dateKeyFormatter.string(from: date)
+        return try await client.functions.invoke(
+            "logs",
+            options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
+        )
     }
 }

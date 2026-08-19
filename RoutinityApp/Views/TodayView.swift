@@ -44,6 +44,13 @@ struct TodayView: View {
         return formatter
     }()
 
+    private static let carryoverWakeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M/d HH:mm"
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        return formatter
+    }()
+
     /// Computed once per render from the raw logs — see RoutineDayMetrics.swift for the actual
     /// (unit-tested) logic. Consolidating to one call avoids re-sorting/re-walking logsViewModel.logs
     /// separately for every derived value below.
@@ -83,6 +90,21 @@ struct TodayView: View {
         return today - baseline
     }
 
+    /// Explains why the metric cards/quick-log buttons below are showing yesterday's still-open
+    /// session instead of a blank "오늘" — otherwise a carried-over session looks unexplained,
+    /// and the 24h auto-close (see docs/api-contract.md) would just silently end their day.
+    ///
+    /// The 24h window is measured from the *first* 기상 log that opened the session, not from
+    /// `dayMetrics.wakeOpenSince` (which tracks the most recent 기상, since a same-session 기상
+    /// re-tap doesn't reset the server's auto-close clock) — using the wrong one here would show
+    /// several hours more headroom than the session actually has left.
+    private var carryoverBannerText: String? {
+        guard logsViewModel.isCarryoverSession, let wakeTime = dayMetrics.actualWakeTime else { return nil }
+        let elapsedHours = Date().timeIntervalSince(wakeTime) / 3600
+        let remainingHours = max(0, Int((24 - elapsedHours).rounded(.up)))
+        return "\(Self.carryoverWakeFormatter.string(from: wakeTime))에 기상하신 뒤 아직 취침을 기록하지 않았어요. 약 \(remainingHours)시간 후 자동으로 하루가 마감돼요."
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -92,6 +114,9 @@ struct TodayView: View {
                     if hasLoadedOnce {
                         scoreRingCard
                         metricCardsRow
+                        if let carryoverBannerText {
+                            carryoverBanner(text: carryoverBannerText)
+                        }
                     } else {
                         loadingPlaceholder
                     }
@@ -106,7 +131,7 @@ struct TodayView: View {
                             Button("다시 시도") {
                                 Task {
                                     await scoreViewModel.refreshTodayScore()
-                                    await logsViewModel.loadLogs(on: Date())
+                                    await logsViewModel.loadTodayIncludingCarryover()
                                 }
                             }
                             .font(.footnote.weight(.semibold))
@@ -119,7 +144,7 @@ struct TodayView: View {
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 async let scoreTask: Void = scoreViewModel.refreshTodayScore()
-                async let logsTask: Void = logsViewModel.loadLogs(on: Date())
+                async let logsTask: Void = logsViewModel.loadTodayIncludingCarryover()
                 // 14 days, not more — TrendViewModel fires one /scores + one /logs call per day
                 // concurrently, and piling on top of the score/logs calls already in flight here
                 // risks tripping the 60-per-minute rate limit on a single screen load.
@@ -324,6 +349,20 @@ struct TodayView: View {
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .routinityCard(padding: 12)
+    }
+
+    private func carryoverBanner(text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.subheadline)
+                .foregroundStyle(Color.routinityOrange)
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(.white)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .routinityCard(padding: 12)
     }
 
