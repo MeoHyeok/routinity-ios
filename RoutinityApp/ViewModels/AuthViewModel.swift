@@ -79,7 +79,7 @@ final class AuthViewModel: ObservableObject {
                 }
             }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = friendlyAuthErrorMessage(error)
         }
     }
 
