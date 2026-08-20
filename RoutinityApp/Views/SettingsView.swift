@@ -16,11 +16,6 @@ struct SettingsView: View {
             List {
                 Section {
                     NavigationLink {
-                        TimelineView()
-                    } label: {
-                        Label("타임라인", systemImage: "clock")
-                    }
-                    NavigationLink {
                         GoalsView()
                     } label: {
                         Label("목표 설정", systemImage: "target")

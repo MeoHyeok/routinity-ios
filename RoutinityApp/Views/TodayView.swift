@@ -12,12 +12,20 @@ struct TodayView: View {
     @StateObject private var scoreViewModel = ScoreViewModel()
     @StateObject private var sleepReportViewModel = ReportViewModel()
     @StateObject private var streakViewModel = TrendViewModel()
+    /// Separate from `logsViewModel` — the timeline section can browse past dates independently
+    /// of "오늘"'s own data (score ring, quick-log button states), which must always reflect today.
+    @StateObject private var timelineLogsViewModel = LogsViewModel()
+    @State private var timelineDate = Date()
     @State private var showSettings = false
     @State private var showSleepReport = false
     /// Distinguishes "still loading" from "genuinely empty" for the very first load — after
     /// that, quick-log refreshes flip isLoading again but shouldn't blank the whole screen.
     @State private var hasLoadedOnce = false
     @AppStorage("notificationsEnabled") private var notificationsEnabled = false
+    /// Gates the interactive tour (see OnboardingTour.swift) — spotlights real on-screen elements
+    /// instead of a separate slide deck, so it stays accurate to whatever's actually on screen.
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @State private var tourStepIndex = 0
     @Environment(\.scenePhase) private var scenePhase
 
     // The session shown below this header is keyed off the KST calendar date (see the KST
@@ -50,6 +58,31 @@ struct TodayView: View {
         formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
         return formatter
     }()
+
+    private static let kstDateKeyFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        return formatter
+    }()
+
+    /// `DatePicker` hands back a `Date` anchored to whatever calendar day it displayed, using the
+    /// *device's* timezone — reformatting that instant through a KST-pinned formatter can land on
+    /// a different calendar date whenever the device's UTC offset is ahead of KST's (+9): e.g.
+    /// local midnight of a picked day in a UTC+13 zone is still the previous day in KST.
+    /// Re-anchoring to noon KST of the same Y/M/D the picker displayed keeps the queried date
+    /// matching what's on screen regardless of device timezone.
+    private func kstAnchoredDate(from date: Date) -> Date {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        var kstCalendar = Calendar(identifier: .gregorian)
+        kstCalendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+        return kstCalendar.date(from: DateComponents(year: components.year, month: components.month, day: components.day, hour: 12)) ?? date
+    }
+
+    private var timelineShowsToday: Bool {
+        Self.kstDateKeyFormatter.string(from: timelineDate) == Self.kstDateKeyFormatter.string(from: Date())
+    }
 
     /// Computed once per render from the raw logs — see RoutineDayMetrics.swift for the actual
     /// (unit-tested) logic. Consolidating to one call avoids re-sorting/re-walking logsViewModel.logs
@@ -123,6 +156,10 @@ struct TodayView: View {
 
                     quickLogSection
 
+                    if hasLoadedOnce {
+                        timelineSection
+                    }
+
                     if let errorMessage = logsViewModel.errorMessage ?? scoreViewModel.errorMessage {
                         VStack(spacing: 8) {
                             Text(errorMessage)
@@ -178,6 +215,16 @@ struct TodayView: View {
                 scheduleNotificationsIfEnabled()
             }
         }
+        // Waits for hasLoadedOnce so the tour's targets (score ring, quick-log buttons) are
+        // actually on screen in their real state before spotlighting them. Must be attached here
+        // (at or above the NavigationStack containing the `.tourAnchor(_:)`-tagged views) rather
+        // than on some other, disconnected view — see tourOverlay's doc comment.
+        .tourOverlay(
+            isActive: hasLoadedOnce && !hasSeenOnboarding,
+            stepIndex: $tourStepIndex,
+            isRealActionSatisfied: dayMetrics.hasLoggedWake,
+            onFinish: { hasSeenOnboarding = true }
+        )
     }
 
     private var header: some View {
@@ -200,6 +247,7 @@ struct TodayView: View {
                     .frame(width: 40, height: 40)
                     .background(Color.routinityCard, in: Circle())
             }
+            .tourAnchor("settingsButton")
         }
     }
 
@@ -258,6 +306,7 @@ struct TodayView: View {
             Spacer()
         }
         .routinityCard(glow: true)
+        .tourAnchor("score")
     }
 
     private func statPill(value: String, label: String) -> some View {
@@ -375,6 +424,7 @@ struct TodayView: View {
             // 기상↔취침: 취침을 기록하면 그 즉시 오늘 리포트를 생성해서 보여준다. 하루의 시작이라
             // 다른 버튼들과 달리 절대 잠기지 않는다.
             toggleLogButton(startType: .wake, endType: .sleep, openSince: dayMetrics.wakeOpenSince, showsStopwatch: false, isLocked: false)
+                .tourAnchor("wakeButton")
 
             // 식사 시작↔종료: 지금 깨어있는 상태(기상~취침 사이)가 아니거나 공부가 진행 중이면 잠금 —
             // 취침을 기록한 뒤에는 그날의 활동이 끝난 것이므로 다시 기상하기 전까진 잠긴 채로 둔다.
@@ -433,6 +483,93 @@ struct TodayView: View {
         }
         .routinityCard(padding: 12)
         .disabled(logsViewModel.isRecording != nil || isLocked)
+    }
+
+    /// Raw log list for a browsable date, inline at the bottom of 오늘 instead of a separate
+    /// 타임라인 tab/menu item. Defaults to today but has its own date picker + `LogsViewModel`
+    /// (`timelineLogsViewModel`) so browsing past days doesn't disturb 오늘's own score
+    /// ring/quick-log button state, which must always reflect the actual current session.
+    private var timelineSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("타임라인")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                DatePicker("날짜", selection: $timelineDate, in: ...Date(), displayedComponents: .date)
+                    .datePickerStyle(.compact)
+                    .labelsHidden()
+                    .tint(.routinityViolet)
+            }
+
+            if timelineLogsViewModel.isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+            } else if let errorMessage = timelineLogsViewModel.errorMessage {
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            } else if timelineLogsViewModel.logs.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.tertiary)
+                    Text("이 날짜에는 기록이 없어요.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .routinityCard()
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(timelineLogsViewModel.logs.sorted { $0.timestamp < $1.timestamp }) { log in
+                        timelineRow(log)
+                    }
+                }
+            }
+        }
+        .task(id: timelineDate) {
+            await timelineLogsViewModel.loadLogs(on: kstAnchoredDate(from: timelineDate))
+        }
+    }
+
+    private func timelineRow(_ log: LogEntry) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.routinityViolet.opacity(0.15))
+                    .frame(width: 34, height: 34)
+                Image(systemName: log.type.symbolName)
+                    .font(.footnote)
+                    .foregroundStyle(Color.routinityViolet)
+            }
+            Text(log.type.displayName)
+                .font(.subheadline)
+                .foregroundStyle(.white)
+            Spacer()
+            Text(log.timestamp, style: .time)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .routinityCard(padding: 12)
+        // No List here (this whole screen is one ScrollView), so .swipeActions isn't available —
+        // a long-press context menu is the equivalent affordance outside a List.
+        .contextMenu {
+            Button(role: .destructive) {
+                Task {
+                    await timelineLogsViewModel.deleteLog(id: log.id)
+                    // Only today's own score/quick-log state can be affected by this delete —
+                    // browsing a past date and deleting from it shouldn't touch either.
+                    guard timelineShowsToday else { return }
+                    await scoreViewModel.refreshTodayScore()
+                    await logsViewModel.loadTodayIncludingCarryover()
+                }
+            } label: {
+                Label("삭제", systemImage: "trash")
+            }
+        }
     }
 
     private func recordAndRefresh(_ type: LogEntry.LogType) {
