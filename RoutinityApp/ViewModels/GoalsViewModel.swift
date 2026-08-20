@@ -78,7 +78,7 @@ final class GoalsViewModel: ObservableObject {
         // .numberPad only changes the on-screen keyboard — paste and hardware keyboards still let
         // non-numeric text through, and the server's own validation error is raw/ungrammatical
         // Korean if left to surface on its own, so catch it here instead of round-tripping.
-        if !studyMinutes.isEmpty, !isPositiveIntegerString(studyMinutes) {
+        if !studyMinutes.isEmpty, !isValidStudyMinutesString(studyMinutes) {
             saveError = saveError ?? GoalsValidationError.invalidStudyMinutes
         } else {
             do {
@@ -147,11 +147,12 @@ final class GoalsViewModel: ObservableObject {
     }
 }
 
-/// Mirrors the server's own `target_value must be a positive integer (minutes)` rule for
-/// `study_duration` (see docs/api-contract.md), checked client-side first.
-private func isPositiveIntegerString(_ value: String) -> Bool {
-    guard let number = Int(value.trimmingCharacters(in: .whitespaces)), number >= 1 else { return false }
-    return true
+/// Mirrors the server's own `study_duration` validation (see docs/api-contract.md) — a positive
+/// integer, and no more than 1440 (there are only that many minutes in a day) — checked
+/// client-side first so the round trip to the server's own English validation error is avoidable.
+private func isValidStudyMinutesString(_ value: String) -> Bool {
+    guard let number = Int(value.trimmingCharacters(in: .whitespaces)) else { return false }
+    return (1...1440).contains(number)
 }
 
 private enum GoalsValidationError: LocalizedError {
@@ -160,7 +161,7 @@ private enum GoalsValidationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidStudyMinutes:
-            return "공부 시간 목표는 1 이상의 숫자(분)로 입력해주세요."
+            return "공부 시간 목표는 1~1440 사이의 숫자(분)로 입력해주세요."
         }
     }
 }
