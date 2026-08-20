@@ -16,6 +16,7 @@ struct TodayView: View {
     /// of "오늘"'s own data (score ring, quick-log button states), which must always reflect today.
     @StateObject private var timelineLogsViewModel = LogsViewModel()
     @State private var timelineDate = Date()
+    @State private var showTimelineDatePicker = false
     @State private var showSettings = false
     @State private var showSleepReport = false
     /// Distinguishes "still loading" from "genuinely empty" for the very first load — after
@@ -59,6 +60,14 @@ struct TodayView: View {
         return formatter
     }()
 
+    private static let timelineDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M월 d일 (E)"
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
+        return formatter
+    }()
+
     /// `DatePicker` hands back a `Date` anchored to whatever calendar day it displayed, using the
     /// *device's* timezone — reformatting that instant through a KST-pinned formatter can land on
     /// a different calendar date whenever the device's UTC offset is ahead of KST's (+9): e.g.
@@ -70,6 +79,15 @@ struct TodayView: View {
         var kstCalendar = Calendar(identifier: .gregorian)
         kstCalendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
         return kstCalendar.date(from: DateComponents(year: components.year, month: components.month, day: components.day, hour: 12)) ?? date
+    }
+
+    private var isTimelineDateToday: Bool {
+        Calendar.current.isDate(kstAnchoredDate(from: timelineDate), inSameDayAs: kstAnchoredDate(from: Date()))
+    }
+
+    private func shiftTimelineDate(byDays days: Int) {
+        guard let shifted = Calendar.current.date(byAdding: .day, value: days, to: timelineDate) else { return }
+        timelineDate = min(shifted, Date())
     }
 
     /// Computed once per render from the raw logs — see RoutineDayMetrics.swift for the actual
@@ -501,10 +519,36 @@ struct TodayView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
-                DatePicker("날짜", selection: $timelineDate, in: ...Date(), displayedComponents: .date)
-                    .datePickerStyle(.compact)
-                    .labelsHidden()
-                    .tint(.routinityViolet)
+                HStack(spacing: 2) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { shiftTimelineDate(byDays: -1) }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 28, height: 28)
+                    }
+
+                    Button {
+                        showTimelineDatePicker = true
+                    } label: {
+                        Text(Self.timelineDayFormatter.string(from: timelineDate))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.white)
+                            .frame(minWidth: 84)
+                    }
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { shiftTimelineDate(byDays: 1) }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(isTimelineDateToday ? Color.secondary.opacity(0.3) : .secondary)
+                            .frame(width: 28, height: 28)
+                    }
+                    .disabled(isTimelineDateToday)
+                }
+                .buttonStyle(.plain)
             }
 
             if let breakdown = timelineTimeBreakdown {
@@ -541,6 +585,21 @@ struct TodayView: View {
         }
         .task(id: timelineDate) {
             await timelineLogsViewModel.loadLogs(on: kstAnchoredDate(from: timelineDate))
+        }
+        .sheet(isPresented: $showTimelineDatePicker) {
+            NavigationStack {
+                DatePicker("날짜", selection: $timelineDate, in: ...Date(), displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .tint(.routinityViolet)
+                    .padding()
+                    .navigationTitle("날짜 선택")
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("완료") { showTimelineDatePicker = false }
+                        }
+                    }
+            }
+            .presentationDetents([.medium])
         }
     }
 
