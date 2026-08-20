@@ -45,7 +45,7 @@ struct TourStep {
         TourStep(
             anchorID: "wakeButton",
             title: "지금 기상하셨나요?",
-            message: "이 버튼을 눌러서 첫 기록을 남겨보세요. 다시 누르면 취침으로 바뀌어요.",
+            message: "이 버튼을 눌러서 첫 기록을 남겨보세요. 다시 누르면 취침으로 바뀌는데, 식사나 공부가 진행 중이면 먼저 끝내야 취침을 누를 수 있어요.",
             advancesOnRealAction: true
         ),
         TourStep(

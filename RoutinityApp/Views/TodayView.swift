@@ -448,7 +448,7 @@ struct TodayView: View {
             // 진행 중으로 남기 때문에, 먼저 그것들을 끝내도록 유도한다.
             toggleLogButton(
                 startType: .wake, endType: .sleep, openSince: dayMetrics.wakeOpenSince, showsStopwatch: false,
-                isLocked: dayMetrics.isSleepButtonLocked
+                isLocked: dayMetrics.isSleepButtonLocked, lockedReason: "식사·공부를 먼저 마쳐주세요"
             )
             .tourAnchor("wakeButton")
 
@@ -456,13 +456,13 @@ struct TodayView: View {
             // 잠금. 이미 진행 중인 종료는 절대 안 잠근다(위 취침 잠금 덕분에 안전하게 항상 닫을 수 있음).
             toggleLogButton(
                 startType: .mealStart, endType: .mealEnd, openSince: dayMetrics.mealOpenSince, showsStopwatch: false,
-                isLocked: dayMetrics.isMealButtonLocked
+                isLocked: dayMetrics.isMealButtonLocked, lockedReason: "기상 후, 공부 중이 아닐 때 가능해요"
             )
 
             // 공부 시작↔종료: 위 식사와 동일한 규칙, 진행 중일 때 실시간 스톱워치 표시.
             toggleLogButton(
                 startType: .studyStart, endType: .studyEnd, openSince: dayMetrics.studyOpenSince, showsStopwatch: true,
-                isLocked: dayMetrics.isStudyButtonLocked
+                isLocked: dayMetrics.isStudyButtonLocked, lockedReason: "기상 후, 식사 중이 아닐 때 가능해요"
             )
         }
     }
@@ -472,7 +472,8 @@ struct TodayView: View {
         endType: LogEntry.LogType,
         openSince: Date?,
         showsStopwatch: Bool,
-        isLocked: Bool
+        isLocked: Bool,
+        lockedReason: String? = nil
     ) -> some View {
         let inProgress = openSince != nil
         let type = inProgress ? endType : startType
@@ -497,7 +498,11 @@ struct TodayView: View {
                     Text(type.displayName)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(isLocked ? Color.secondary : Color.white)
-                    if inProgress, showsStopwatch, let start = openSince {
+                    if isLocked, let lockedReason {
+                        Text(lockedReason)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    } else if inProgress, showsStopwatch, let start = openSince {
                         Text(start, style: .timer)
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(Color.routinityCyan)
