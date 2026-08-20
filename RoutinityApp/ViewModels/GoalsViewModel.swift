@@ -94,7 +94,12 @@ final class GoalsViewModel: ObservableObject {
         await loadGoals()
 
         if let saveError {
-            errorMessage = friendlyErrorMessage(saveError)
+            // The two upserts are independent (see comment above), so one can fail while the
+            // other genuinely saved — showing only the error here would otherwise make a real,
+            // successful save look like it never happened.
+            errorMessage = savedAnything
+                ? "\(friendlyErrorMessage(saveError)) (다른 목표는 저장됐어요.)"
+                : friendlyErrorMessage(saveError)
         } else if savedAnything {
             savedMessage = "저장되었습니다."
         }

@@ -204,9 +204,16 @@ struct TodayView: View {
                 _ = await (scoreTask, logsTask, streakTask)
                 if !hasAppliedDefaultGoals {
                     await goalsViewModel.loadGoals()
+                    let hadNoGoalsYet = !goalsViewModel.hasWakeGoal && !goalsViewModel.hasStudyGoal
                     await goalsViewModel.applyDefaultGoalsIfMissing()
                     if goalsViewModel.hasWakeGoal && goalsViewModel.hasStudyGoal {
                         hasAppliedDefaultGoals = true
+                        // scoreTask above already ran with no goals in place, so the score
+                        // ring/목표 카드 would otherwise show "목표 없음" for one render even
+                        // though defaults were just applied a moment later.
+                        if hadNoGoalsYet {
+                            await scoreViewModel.refreshTodayScore()
+                        }
                     }
                 }
                 hasLoadedOnce = true

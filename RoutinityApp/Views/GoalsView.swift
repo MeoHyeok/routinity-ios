@@ -61,6 +61,10 @@ struct GoalsView: View {
                 } onDelete: {
                     Task { await viewModel.deleteGoal(type: GoalTargetType.wakeTime) }
                 }
+                // A save in flight ends with loadGoals() re-syncing both fields from the server —
+                // editing here while that's pending would have the edit silently overwritten the
+                // moment the sync lands.
+                .disabled(viewModel.isSaving)
 
                 goalCard(
                     title: "공부 시간 목표",
@@ -76,6 +80,7 @@ struct GoalsView: View {
                 } onDelete: {
                     Task { await viewModel.deleteGoal(type: GoalTargetType.studyDuration) }
                 }
+                .disabled(viewModel.isSaving)
 
                 VStack(spacing: 8) {
                     if let errorMessage = viewModel.errorMessage {
