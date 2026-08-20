@@ -21,7 +21,9 @@ final class InsightsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let insights: Insights = try await client.functions.invoke("insights", options: .init(method: .get))
+            let insights: Insights = try await loggedInvoke("GET /insights") {
+                try await client.functions.invoke("insights", options: .init(method: .get))
+            }
             self.insights = insights
         } catch {
             errorMessage = friendlyErrorMessage(error)

@@ -92,14 +92,18 @@ final class TrendViewModel: ObservableObject {
 
     private func fetchDay(_ date: Date) async throws -> DailyTrendPoint {
         let dateKey = Self.dateKeyFormatter.string(from: date)
-        async let scoresTask: ScoresResponse = client.functions.invoke(
-            "scores",
-            options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
-        )
-        async let logsTask: [LogEntry] = client.functions.invoke(
-            "logs",
-            options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
-        )
+        async let scoresTask: ScoresResponse = loggedInvoke("GET /scores?date=\(dateKey) [trend]") {
+            try await client.functions.invoke(
+                "scores",
+                options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
+            )
+        }
+        async let logsTask: [LogEntry] = loggedInvoke("GET /logs?date=\(dateKey) [trend]") {
+            try await client.functions.invoke(
+                "logs",
+                options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
+            )
+        }
         let (scoresResponse, logs) = try await (scoresTask, logsTask)
         let hadMeal = logs.contains { $0.type == .mealEnd }
         return DailyTrendPoint(date: date, dailyScore: scoresResponse.dailyScore, scores: scoresResponse.scores, hadMeal: hadMeal)

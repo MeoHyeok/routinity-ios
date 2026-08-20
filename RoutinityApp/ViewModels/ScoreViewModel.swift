@@ -34,10 +34,12 @@ final class ScoreViewModel: ObservableObject {
 
         do {
             let dateKey = Self.dateKeyFormatter.string(from: Date())
-            let response: ScoresResponse = try await client.functions.invoke(
-                "scores",
-                options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
-            )
+            let response: ScoresResponse = try await loggedInvoke("GET /scores?date=\(dateKey)") {
+                try await client.functions.invoke(
+                    "scores",
+                    options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
+                )
+            }
             scores = response.scores
             dailyScore = response.dailyScore
         } catch {

@@ -21,7 +21,9 @@ final class ReportViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let report: Report = try await client.functions.invoke(period.functionName, options: .init(method: .get))
+            let report: Report = try await loggedInvoke("GET /\(period.functionName)") {
+                try await client.functions.invoke(period.functionName, options: .init(method: .get))
+            }
             self.report = report
         } catch {
             errorMessage = friendlyErrorMessage(error)
