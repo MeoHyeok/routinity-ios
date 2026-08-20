@@ -89,7 +89,9 @@ struct AICoachView: View {
             .task {
                 // Loaded once (not tied to `period`) purely to ground goalSuggestionCard in real
                 // recent data — same 14-day window TodayView's streak calc already uses safely.
-                await trendViewModel.loadTrend(days: 14)
+                // Only feeds computeGoalSuggestion (wake/study miss rates + actual averages) —
+                // skip the per-day /logs fetch that only mealIrregularityRate would need.
+                await trendViewModel.loadTrend(days: 14, includingMealData: false)
             }
         }
         .preferredColorScheme(.dark)

@@ -57,7 +57,12 @@ final class TrendViewModel: ObservableObject {
     // than trusting every call site to pick a small enough `days`.
     private static let maxConcurrentDays = 10
 
-    func loadTrend(days: Int) async {
+    /// `includingMealData` skips the per-day `/logs` fetch (used only to derive `hadMeal`, which
+    /// backs `mealIrregularityRate`) for call sites that never read that property — TodayView's
+    /// streak/personal-average calculation only needs `dailyScore`, so its 14-day window was
+    /// firing 14 entirely unused `/logs` calls on every load before this. AnalysisView's own
+    /// instance does read `mealIrregularityRate`, so it keeps the default `true`.
+    func loadTrend(days: Int, includingMealData: Bool = true) async {
         errorMessage = nil
         isLoading = true
         defer { isLoading = false }
@@ -72,14 +77,14 @@ final class TrendViewModel: ObservableObject {
                 var remaining = dates[...]
                 var results: [DailyTrendPoint] = []
                 for date in remaining.prefix(Self.maxConcurrentDays) {
-                    group.addTask { try await self.fetchDay(date) }
+                    group.addTask { try await self.fetchDay(date, includingMealData: includingMealData) }
                 }
                 remaining = remaining.dropFirst(Self.maxConcurrentDays)
                 for try await point in group {
                     results.append(point)
                     if let next = remaining.first {
                         remaining = remaining.dropFirst()
-                        group.addTask { try await self.fetchDay(next) }
+                        group.addTask { try await self.fetchDay(next, includingMealData: includingMealData) }
                     }
                 }
                 return results
@@ -90,21 +95,23 @@ final class TrendViewModel: ObservableObject {
         }
     }
 
-    private func fetchDay(_ date: Date) async throws -> DailyTrendPoint {
+    private func fetchDay(_ date: Date, includingMealData: Bool) async throws -> DailyTrendPoint {
         let dateKey = Self.dateKeyFormatter.string(from: date)
-        async let scoresTask: ScoresResponse = loggedInvoke("GET /scores?date=\(dateKey) [trend]") {
+        let scoresResponse: ScoresResponse = try await loggedInvoke("GET /scores?date=\(dateKey) [trend]") {
             try await client.functions.invoke(
                 "scores",
                 options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
             )
         }
-        async let logsTask: [LogEntry] = loggedInvoke("GET /logs?date=\(dateKey) [trend]") {
+        guard includingMealData else {
+            return DailyTrendPoint(date: date, dailyScore: scoresResponse.dailyScore, scores: scoresResponse.scores, hadMeal: false)
+        }
+        let logs: [LogEntry] = try await loggedInvoke("GET /logs?date=\(dateKey) [trend]") {
             try await client.functions.invoke(
                 "logs",
                 options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
             )
         }
-        let (scoresResponse, logs) = try await (scoresTask, logsTask)
         let hadMeal = logs.contains { $0.type == .mealEnd }
         return DailyTrendPoint(date: date, dailyScore: scoresResponse.dailyScore, scores: scoresResponse.scores, hadMeal: hadMeal)
     }

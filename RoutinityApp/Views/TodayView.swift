@@ -215,7 +215,9 @@ struct TodayView: View {
                 // 14 days, not more — TrendViewModel fires one /scores + one /logs call per day
                 // concurrently, and piling on top of the score/logs calls already in flight here
                 // risks tripping the 60-per-minute rate limit on a single screen load.
-                async let streakTask: Void = streakViewModel.loadTrend(days: 14)
+                // Only streak/personal-average (dailyScore-based) are read from this instance —
+                // skip the per-day /logs fetch that mealIrregularityRate would otherwise need.
+                async let streakTask: Void = streakViewModel.loadTrend(days: 14, includingMealData: false)
                 _ = await (scoreTask, logsTask, streakTask)
                 if !hasAppliedDefaultGoals {
                     await goalsViewModel.loadGoals()
