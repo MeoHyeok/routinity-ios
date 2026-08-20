@@ -12,6 +12,9 @@ struct TodayView: View {
     @StateObject private var scoreViewModel = ScoreViewModel()
     @StateObject private var sleepReportViewModel = ReportViewModel()
     @StateObject private var streakViewModel = TrendViewModel()
+    /// Not rendered anywhere — used purely to check/backfill goals for a brand-new account before
+    /// the onboarding tour's first appearance (see `.task` below).
+    @StateObject private var goalsViewModel = GoalsViewModel()
     /// Separate from `logsViewModel` — the timeline section can browse past dates independently
     /// of "오늘"'s own data (score ring, quick-log button states), which must always reflect today.
     @StateObject private var timelineLogsViewModel = LogsViewModel()
@@ -193,6 +196,10 @@ struct TodayView: View {
                 // risks tripping the 60-per-minute rate limit on a single screen load.
                 async let streakTask: Void = streakViewModel.loadTrend(days: 14)
                 _ = await (scoreTask, logsTask, streakTask)
+                if !hasSeenOnboarding {
+                    await goalsViewModel.loadGoals()
+                    await goalsViewModel.applyDefaultGoalsIfMissing()
+                }
                 hasLoadedOnce = true
                 scheduleNotificationsIfEnabled()
             }

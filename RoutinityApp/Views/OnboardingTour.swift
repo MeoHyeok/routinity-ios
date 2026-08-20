@@ -51,7 +51,7 @@ struct TourStep {
         TourStep(
             anchorID: "settingsButton",
             title: "목표와 알림 설정",
-            message: "여기서 기상·공부 목표를 정하고, 기록 알림도 켤 수 있어요.",
+            message: "기상 08:00 · 공부 5시간으로 기본 목표를 설정해드렸어요. 여기서 언제든 바꾸고, 기록 알림도 켤 수 있어요.",
             advancesOnRealAction: false
         ),
         TourStep(

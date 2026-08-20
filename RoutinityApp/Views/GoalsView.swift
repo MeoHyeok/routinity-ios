@@ -13,8 +13,10 @@ struct GoalsView: View {
     var suggestedWakeTime: String? = nil
     var suggestedStudyMinutes: String? = nil
 
-    private static let starterWakeTime = "07:00"
-    private static let starterStudyMinutes = "120"
+    // Mirrors GoalsViewModel's own defaults (the ones auto-applied for a brand-new account) so
+    // there's a single "default routine" concept in the app, not two different sets of numbers.
+    private static let starterWakeTime = GoalsViewModel.defaultWakeTime
+    private static let starterStudyMinutes = GoalsViewModel.defaultStudyMinutes
 
     private static let wakeTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()

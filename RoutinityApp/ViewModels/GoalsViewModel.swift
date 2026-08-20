@@ -21,7 +21,24 @@ final class GoalsViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var savedMessage: String?
 
+    /// The routine a genuinely new account gets set up with automatically, so a fresh signup
+    /// isn't scored against nothing until they find the goals screen themselves. Kept alongside
+    /// GoalsView's own suggestion-pill copy so the two stay in sync.
+    static let defaultWakeTime = "08:00"
+    static let defaultStudyMinutes = "300"
+
     private let client = SupabaseManager.client
+
+    /// Silently backfills the default routine for a brand-new account — called once from the
+    /// onboarding tour's first appearance. Only applies when *both* goals are still unset, so it
+    /// never clobbers something the user already configured (e.g. re-running onboarding after
+    /// deleting just one of the two).
+    func applyDefaultGoalsIfMissing() async {
+        guard !hasWakeGoal, !hasStudyGoal else { return }
+        wakeTime = Self.defaultWakeTime
+        studyMinutes = Self.defaultStudyMinutes
+        await save()
+    }
 
     func loadGoals() async {
         errorMessage = nil
