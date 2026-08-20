@@ -34,7 +34,11 @@ struct AICoachView: View {
                             HStack(spacing: 8) {
                                 Image(systemName: "sparkles")
                                     .foregroundStyle(LinearGradient.routinityAccent)
-                                Text(report.generatedVia == "claude" ? "AI 생성 리포트" : "기본 템플릿 리포트")
+                                // Any real model (not just "claude" specifically — the backend
+                                // may swap providers) counts as an AI-generated report; only the
+                                // server's own rule-based fallback ("template", or the field
+                                // missing) reads as the template label.
+                                Text(report.generatedVia != nil && report.generatedVia != "template" ? "AI 생성 리포트" : "기본 템플릿 리포트")
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(.secondary)
                                 Spacer()
