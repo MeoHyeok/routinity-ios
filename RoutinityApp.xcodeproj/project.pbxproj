@@ -34,8 +34,6 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6D09639C302C6921009C14A4 /* RoutinityApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = RoutinityApp;
 			sourceTree = "<group>";
 		};
