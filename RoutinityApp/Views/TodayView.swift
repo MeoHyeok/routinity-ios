@@ -3,6 +3,7 @@
 //  RoutinityApp
 //
 
+import Supabase
 import SwiftUI
 import UIKit
 
@@ -28,15 +29,29 @@ struct TodayView: View {
     @AppStorage("notificationsEnabled") private var notificationsEnabled = false
     /// Gates the interactive tour (see OnboardingTour.swift) — spotlights real on-screen elements
     /// instead of a separate slide deck, so it stays accurate to whatever's actually on screen.
-    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    /// Keyed per-account (see `init` below), not just per-device — a device-global key would mean
+    /// a second account signed into the same device (very common while testing) inherits the
+    /// first account's "already seen it" state and silently never sees the tour, even though it's
+    /// genuinely that account's first time.
+    @AppStorage private var hasSeenOnboarding: Bool
     /// Separate from `hasSeenOnboarding` on purpose — that flag flips permanently the moment the
     /// user dismisses the tour, regardless of whether the default-goal backfill in the same
     /// `.task` actually succeeded (e.g. a cold-start network hiccup on first launch). Gating the
     /// retry on this instead means a failed attempt gets retried on the next launch too, and it
-    /// only ever stops once goals are confirmed present.
-    @AppStorage("hasAppliedDefaultGoals") private var hasAppliedDefaultGoals = false
+    /// only ever stops once goals are confirmed present. Also per-account, same reasoning as above.
+    @AppStorage private var hasAppliedDefaultGoals: Bool
     @State private var tourStepIndex = 0
     @Environment(\.scenePhase) private var scenePhase
+
+    init(authViewModel: AuthViewModel) {
+        self.authViewModel = authViewModel
+        // RootView recreates TodayView (`.id(authViewModel.session?.user.id)`) on every account
+        // switch, so this only ever runs once per signed-in account — safe to derive the storage
+        // key from the session available at that moment.
+        let accountKey = authViewModel.session?.user.id.uuidString ?? "anonymous"
+        _hasSeenOnboarding = AppStorage(wrappedValue: false, "hasSeenOnboarding_\(accountKey)")
+        _hasAppliedDefaultGoals = AppStorage(wrappedValue: false, "hasAppliedDefaultGoals_\(accountKey)")
+    }
 
     // The session shown below this header is keyed off the KST calendar date (see the KST
     // session model in docs/api-contract.md), so the header has to agree with it even on a
