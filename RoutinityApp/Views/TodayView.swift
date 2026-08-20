@@ -409,22 +409,26 @@ struct TodayView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
 
-            // 기상↔취침: 취침을 기록하면 그 즉시 오늘 리포트를 생성해서 보여준다. 하루의 시작이라
-            // 다른 버튼들과 달리 절대 잠기지 않는다.
-            toggleLogButton(startType: .wake, endType: .sleep, openSince: dayMetrics.wakeOpenSince, showsStopwatch: false, isLocked: false)
-                .tourAnchor("wakeButton")
+            // 기상↔취침: 기상(시작)은 절대 잠기지 않는다. 하지만 취침(종료)은 식사·공부가 아직
+            // 진행 중이면 잠근다 — 그 상태로 취침을 기록하면 식사/공부 세션이 닫을 방법 없이 영원히
+            // 진행 중으로 남기 때문에, 먼저 그것들을 끝내도록 유도한다.
+            toggleLogButton(
+                startType: .wake, endType: .sleep, openSince: dayMetrics.wakeOpenSince, showsStopwatch: false,
+                isLocked: dayMetrics.isSleepButtonLocked
+            )
+            .tourAnchor("wakeButton")
 
-            // 식사 시작↔종료: 지금 깨어있는 상태(기상~취침 사이)가 아니거나 공부가 진행 중이면 잠금 —
-            // 취침을 기록한 뒤에는 그날의 활동이 끝난 것이므로 다시 기상하기 전까진 잠긴 채로 둔다.
+            // 식사 시작↔종료: 시작은 지금 깨어있는 상태(기상~취침 사이)가 아니거나 공부가 진행 중이면
+            // 잠금. 이미 진행 중인 종료는 절대 안 잠근다(위 취침 잠금 덕분에 안전하게 항상 닫을 수 있음).
             toggleLogButton(
                 startType: .mealStart, endType: .mealEnd, openSince: dayMetrics.mealOpenSince, showsStopwatch: false,
-                isLocked: dayMetrics.wakeOpenSince == nil || dayMetrics.studyOpenSince != nil
+                isLocked: dayMetrics.isMealButtonLocked
             )
 
-            // 공부 시작↔종료: 지금 깨어있는 상태가 아니거나 식사가 진행 중이면 잠금. 진행 중일 때 실시간 스톱워치 표시.
+            // 공부 시작↔종료: 위 식사와 동일한 규칙, 진행 중일 때 실시간 스톱워치 표시.
             toggleLogButton(
                 startType: .studyStart, endType: .studyEnd, openSince: dayMetrics.studyOpenSince, showsStopwatch: true,
-                isLocked: dayMetrics.wakeOpenSince == nil || dayMetrics.mealOpenSince != nil
+                isLocked: dayMetrics.isStudyButtonLocked
             )
         }
     }

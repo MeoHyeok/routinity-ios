@@ -84,6 +84,35 @@ struct RoutineDayMetricsTests {
         #expect(metrics.restMinutesSoFar == 0)
     }
 
+    @Test func sleepButtonLocksWhileStudyOrMealIsStillOpen() {
+        let openStudy = computeRoutineDayMetrics(from: [log(.wake, 0), log(.studyStart, 10)])
+        #expect(openStudy.isSleepButtonLocked == true)
+
+        let openMeal = computeRoutineDayMetrics(from: [log(.wake, 0), log(.mealStart, 10)])
+        #expect(openMeal.isSleepButtonLocked == true)
+
+        let bothClosed = computeRoutineDayMetrics(from: [
+            log(.wake, 0), log(.studyStart, 10), log(.studyEnd, 20), log(.mealStart, 30), log(.mealEnd, 40),
+        ])
+        #expect(bothClosed.isSleepButtonLocked == false)
+    }
+
+    @Test func sleepButtonNeverLocksBeforeWaking() {
+        // 기상 itself must always stay reachable, regardless of stray open study/meal state.
+        let metrics = computeRoutineDayMetrics(from: [])
+        #expect(metrics.isSleepButtonLocked == false)
+    }
+
+    @Test func alreadyOpenStudyOrMealNeverLocksItsOwnCloseButton() {
+        // Regression: 공부 시작 → 취침 (without ending 공부) used to leave 공부 stuck locked with no
+        // way to ever close it, since its lock condition only checked wake state. It must stay
+        // closeable regardless of what else is going on.
+        let logs = [log(.wake, 0), log(.studyStart, 10), log(.sleep, 20)]
+        let metrics = computeRoutineDayMetrics(from: logs)
+        #expect(metrics.studyOpenSince != nil) // still genuinely open
+        #expect(metrics.isStudyButtonLocked == false)
+    }
+
     @Test func restStopsAccumulatingOnceTheSessionIsClosedBySleep() {
         // 기상 at t=0, 취침 at t=60. Reopening the app much later the same KST day (no new
         // 기상) shouldn't make 휴식 keep growing past the moment 취침 was logged.

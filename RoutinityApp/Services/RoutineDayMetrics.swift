@@ -24,6 +24,27 @@ struct RoutineDayMetrics {
     /// 시간" (which needs 취침 to define the 기상~취침 window), just today's rest time so far. Nil
     /// before 기상 is logged, since there's no window to measure from yet.
     let restMinutesSoFar: Int?
+
+    /// 취침 locks while 식사 or 공부 is still in progress — closing the day without ending them
+    /// would strand those sessions permanently open with no way to close them (their own lock
+    /// conditions only allow *starting* a new session between 기상 and 취침, so once 취침 closes
+    /// that window, an already-open 식사/공부 could never be reached again). 기상 itself must stay
+    /// unlockable always, so this only ever affects the 취침 (closing) direction.
+    var isSleepButtonLocked: Bool {
+        wakeOpenSince != nil && (mealOpenSince != nil || studyOpenSince != nil)
+    }
+
+    /// Starting 식사 locks outside 기상~취침 or while 공부 is running. Closing an already-open 식사
+    /// is never locked — safe regardless of wake state, since `isSleepButtonLocked` above prevents
+    /// 취침 from ever being logged while 식사 is open in the first place.
+    var isMealButtonLocked: Bool {
+        mealOpenSince == nil && (wakeOpenSince == nil || studyOpenSince != nil)
+    }
+
+    /// Same rule as `isMealButtonLocked`, mirrored for 공부.
+    var isStudyButtonLocked: Bool {
+        studyOpenSince == nil && (wakeOpenSince == nil || mealOpenSince != nil)
+    }
 }
 
 func computeRoutineDayMetrics(from logs: [LogEntry], now: Date = Date()) -> RoutineDayMetrics {
