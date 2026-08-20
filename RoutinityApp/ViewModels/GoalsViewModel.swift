@@ -67,39 +67,42 @@ final class GoalsViewModel: ObservableObject {
         defer { isSaving = false }
 
         // Attempted independently so one field failing to save (e.g. a transient network error)
-        // doesn't stop the other field's edit from ever being sent.
+        // doesn't stop the other field's edit from ever being sent. Tracked as two separate slots
+        // (not one shared `saveError`, `??`-defaulted) so a network failure on one field can never
+        // silently swallow a validation failure on the other — both need to reach the user.
         var savedAnything = false
-        var saveError: Error?
+        var upsertError: Error?
         do {
             savedAnything = try await upsert(type: GoalTargetType.wakeTime, value: wakeTime)
         } catch {
-            saveError = error
+            upsertError = error
         }
         // .numberPad only changes the on-screen keyboard — paste and hardware keyboards still let
         // non-numeric text through, and the server's own validation error is raw/ungrammatical
         // Korean if left to surface on its own, so catch it here instead of round-tripping.
+        var validationError: GoalsValidationError?
         if !studyMinutes.isEmpty, !isValidStudyMinutesString(studyMinutes) {
-            saveError = saveError ?? GoalsValidationError.invalidStudyMinutes
+            validationError = .invalidStudyMinutes
         } else {
             do {
                 savedAnything = try await upsert(type: GoalTargetType.studyDuration, value: studyMinutes) || savedAnything
             } catch {
-                saveError = error
+                upsertError = upsertError ?? error
             }
         }
 
         // Re-sync from the server regardless of success/failure so the UI never drifts from
         // what's actually saved, even if one of the two upserts above failed partway through.
-        // This also resets errorMessage, so re-apply the save error (if any) after it runs.
+        // This also resets errorMessage, so re-apply below whatever actually went wrong.
         await loadGoals()
 
-        if let saveError {
+        let errorTexts = [upsertError.map(friendlyErrorMessage), validationError?.errorDescription].compactMap { $0 }
+        if !errorTexts.isEmpty {
             // The two upserts are independent (see comment above), so one can fail while the
             // other genuinely saved — showing only the error here would otherwise make a real,
             // successful save look like it never happened.
-            errorMessage = savedAnything
-                ? "\(friendlyErrorMessage(saveError)) (다른 목표는 저장됐어요.)"
-                : friendlyErrorMessage(saveError)
+            let combined = errorTexts.joined(separator: " ")
+            errorMessage = savedAnything ? "\(combined) (다른 목표는 저장됐어요.)" : combined
         } else if savedAnything {
             savedMessage = "저장되었습니다."
         }
