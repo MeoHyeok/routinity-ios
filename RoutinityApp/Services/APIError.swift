@@ -12,6 +12,20 @@ private struct APIErrorBody: Decodable {
     let error: String
 }
 
+/// Every `{ "error": "..." }` body the backend actually sends is a fixed, hardcoded **English**
+/// string (see docs/api-contract.md — none of it is per-request dynamic content), so it's never
+/// our own Korean text like `friendlyAuthErrorMessage`'s doc comment used to assume. Translating
+/// each known phrase here instead of surfacing the body directly keeps the UI consistently
+/// Korean; anything not in this table (a future backend message this list hasn't caught up to
+/// yet) falls back to a generic Korean message with the status code rather than leaking English.
+private let knownAPIErrorTranslations: [String: String] = [
+    "rate limit exceeded, try again later": "요청이 너무 많아요. 잠시 후 다시 시도해주세요.",
+    "log not found": "해당 기록을 찾을 수 없어요.",
+    "goal not found": "해당 목표를 찾을 수 없어요. 이미 삭제됐을 수 있어요.",
+    "target_value must be HH:MM (24h)": "시간 형식이 올바르지 않아요. HH:MM 형식으로 입력해주세요.",
+    "target_value must be a positive integer (minutes)": "공부 시간 목표는 1 이상의 숫자(분)로 입력해주세요.",
+]
+
 func friendlyErrorMessage(_ error: Error) -> String {
     // `URLError.localizedDescription` is raw, untranslated OS text (e.g. "The Internet connection
     // appears to be offline.") — this is the single most common real-world failure (wifi/cellular
@@ -29,17 +43,10 @@ func friendlyErrorMessage(_ error: Error) -> String {
     guard case let .httpError(code, data) = error as? FunctionsError else {
         return error.localizedDescription
     }
-    // The backend's rate-limit body is a fixed, untranslated English string (see
-    // docs/api-contract.md) — every other error body is our own Korean text, but this one would
-    // otherwise leak raw English into an all-Korean UI, and the doc's own guidance for 429 is to
-    // show a "잠시 후 다시 시도" prompt rather than surfacing the body at all.
-    guard code != 429 else {
-        return "요청이 너무 많아요. 잠시 후 다시 시도해주세요."
-    }
     guard let body = try? JSONDecoder().decode(APIErrorBody.self, from: data) else {
         return "요청 실패 (\(code))"
     }
-    return body.error
+    return knownAPIErrorTranslations[body.error] ?? "요청 처리 중 문제가 발생했어요 (\(code))"
 }
 
 /// `AuthError.message`/`localizedDescription` are the raw strings Supabase Auth's server

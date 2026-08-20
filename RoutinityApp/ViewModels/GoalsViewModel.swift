@@ -18,6 +18,7 @@ final class GoalsViewModel: ObservableObject {
     @Published private(set) var hasStudyGoal = false
     @Published private(set) var isLoading = false
     @Published private(set) var isSaving = false
+    @Published private(set) var isDeleting = false
     @Published var errorMessage: String?
     @Published var savedMessage: String?
 
@@ -100,6 +101,12 @@ final class GoalsViewModel: ObservableObject {
     }
 
     func deleteGoal(type: String) async {
+        // A rapid double-tap on "목표 삭제" before the first request's `hasGoal` update lands
+        // would otherwise fire two DELETEs — the second always 404s ("goal not found") since the
+        // first already removed the row.
+        guard !isDeleting else { return }
+        isDeleting = true
+        defer { isDeleting = false }
         errorMessage = nil
         savedMessage = nil
 

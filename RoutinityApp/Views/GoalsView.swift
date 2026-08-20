@@ -144,6 +144,7 @@ struct GoalsView: View {
             if hasGoal {
                 Button("목표 삭제", role: .destructive, action: onDelete)
                     .font(.footnote)
+                    .disabled(viewModel.isDeleting)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
