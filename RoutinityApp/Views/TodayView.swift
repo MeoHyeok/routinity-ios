@@ -59,14 +59,6 @@ struct TodayView: View {
         return formatter
     }()
 
-    private static let kstDateKeyFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = TimeZone(identifier: "Asia/Seoul")
-        return formatter
-    }()
-
     /// `DatePicker` hands back a `Date` anchored to whatever calendar day it displayed, using the
     /// *device's* timezone — reformatting that instant through a KST-pinned formatter can land on
     /// a different calendar date whenever the device's UTC offset is ahead of KST's (+9): e.g.
@@ -78,10 +70,6 @@ struct TodayView: View {
         var kstCalendar = Calendar(identifier: .gregorian)
         kstCalendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
         return kstCalendar.date(from: DateComponents(year: components.year, month: components.month, day: components.day, hour: 12)) ?? date
-    }
-
-    private var timelineShowsToday: Bool {
-        Self.kstDateKeyFormatter.string(from: timelineDate) == Self.kstDateKeyFormatter.string(from: Date())
     }
 
     /// Computed once per render from the raw logs — see RoutineDayMetrics.swift for the actual
@@ -554,22 +542,6 @@ struct TodayView: View {
                 .foregroundStyle(.secondary)
         }
         .routinityCard(padding: 12)
-        // No List here (this whole screen is one ScrollView), so .swipeActions isn't available —
-        // a long-press context menu is the equivalent affordance outside a List.
-        .contextMenu {
-            Button(role: .destructive) {
-                Task {
-                    await timelineLogsViewModel.deleteLog(id: log.id)
-                    // Only today's own score/quick-log state can be affected by this delete —
-                    // browsing a past date and deleting from it shouldn't touch either.
-                    guard timelineShowsToday else { return }
-                    await scoreViewModel.refreshTodayScore()
-                    await logsViewModel.loadTodayIncludingCarryover()
-                }
-            } label: {
-                Label("삭제", systemImage: "trash")
-            }
-        }
     }
 
     private func recordAndRefresh(_ type: LogEntry.LogType) {
