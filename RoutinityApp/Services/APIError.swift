@@ -25,6 +25,7 @@ private let knownAPIErrorTranslations: [String: String] = [
     "target_value must be HH:MM (24h)": "시간 형식이 올바르지 않아요. HH:MM 형식으로 입력해주세요.",
     "target_value must be a positive integer (minutes)": "공부 시간 목표는 1 이상의 숫자(분)로 입력해주세요.",
     "target_value must be at most 1440 (minutes in a day)": "공부 시간 목표는 하루(1440분)를 넘을 수 없어요.",
+    "timestamp must not be in the future": "기기 시간을 확인해주세요.",
 ]
 
 func friendlyErrorMessage(_ error: Error) -> String {
