@@ -481,6 +481,19 @@ struct TodayView: View {
     /// 타임라인 tab/menu item. Defaults to today but has its own date picker + `LogsViewModel`
     /// (`timelineLogsViewModel`) so browsing past days doesn't disturb 오늘's own score
     /// ring/quick-log button state, which must always reflect the actual current session.
+    /// A live 식사/공부/휴식 분배 for whichever date the timeline picker has selected — computed
+    /// straight from that date's already-fetched logs, so it's available immediately even for an
+    /// in-progress session with no 취침 yet (unlike the AI 코치 리포트's `time_breakdown`, which the
+    /// backend can only fill in once the 기상~취침 window is actually closed).
+    private var timelineTimeBreakdown: TimeBreakdown? {
+        let metrics = computeRoutineDayMetrics(from: timelineLogsViewModel.logs)
+        guard metrics.hasLoggedWake else { return nil }
+        let meal = metrics.totalMealMinutes
+        let study = metrics.totalStudyMinutes
+        let rest = metrics.restMinutesSoFar ?? 0
+        return TimeBreakdown(activeMinutes: meal + study + rest, mealMinutes: meal, studyMinutes: study, restMinutes: rest)
+    }
+
     private var timelineSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -492,6 +505,10 @@ struct TodayView: View {
                     .datePickerStyle(.compact)
                     .labelsHidden()
                     .tint(.routinityViolet)
+            }
+
+            if let breakdown = timelineTimeBreakdown {
+                TimeBreakdownChart(breakdown: breakdown)
             }
 
             if timelineLogsViewModel.isLoading {
