@@ -29,7 +29,9 @@ final class GoalsViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let goals: [Goal] = try await client.functions.invoke("goals", options: .init(method: .get))
+            let goals: [Goal] = try await loggedInvoke("GET /goals") {
+                try await client.functions.invoke("goals", options: .init(method: .get))
+            }
             let goalsByType = Dictionary(uniqueKeysWithValues: goals.map { ($0.targetType, $0) })
             wakeTime = goalsByType[GoalTargetType.wakeTime]?.targetValue ?? ""
             studyMinutes = goalsByType[GoalTargetType.studyDuration]?.targetValue ?? ""
@@ -85,10 +87,12 @@ final class GoalsViewModel: ObservableObject {
         savedMessage = nil
 
         do {
-            try await client.functions.invoke(
-                "goals",
-                options: .init(method: .delete, query: [URLQueryItem(name: "target_type", value: type)])
-            )
+            try await loggedInvoke("DELETE /goals?target_type=\(type)") {
+                try await client.functions.invoke(
+                    "goals",
+                    options: .init(method: .delete, query: [URLQueryItem(name: "target_type", value: type)])
+                )
+            }
             switch type {
             case GoalTargetType.wakeTime:
                 wakeTime = ""
@@ -112,7 +116,9 @@ final class GoalsViewModel: ObservableObject {
         guard !value.isEmpty else { return false }
 
         let request = GoalUpsertRequest(targetType: type, targetValue: value)
-        let _: Goal = try await client.functions.invoke("goals", options: .init(body: request))
+        let _: Goal = try await loggedInvoke("POST /goals (\(type))") {
+            try await client.functions.invoke("goals", options: .init(body: request))
+        }
         return true
     }
 }

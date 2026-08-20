@@ -39,7 +39,9 @@ final class LogsViewModel: ObservableObject {
         let request = NewLogRequest(type: type.rawValue, timestamp: Self.isoFormatter.string(from: Date()))
 
         do {
-            let _: LogEntry = try await client.functions.invoke("logs", options: .init(body: request))
+            let _: LogEntry = try await loggedInvoke("POST /logs (\(type.rawValue))") {
+                try await client.functions.invoke("logs", options: .init(body: request))
+            }
             await loadTodayIncludingCarryover()
         } catch {
             // Edge Functions cold-start after a few idle minutes, which surfaces as a transient
@@ -52,7 +54,9 @@ final class LogsViewModel: ObservableObject {
             }
             do {
                 try await Task.sleep(nanoseconds: 800_000_000)
-                let _: LogEntry = try await client.functions.invoke("logs", options: .init(body: request))
+                let _: LogEntry = try await loggedInvoke("POST /logs (\(type.rawValue)) [retry]") {
+                    try await client.functions.invoke("logs", options: .init(body: request))
+                }
                 await loadTodayIncludingCarryover()
             } catch {
                 errorMessage = friendlyErrorMessage(error)
@@ -119,9 +123,11 @@ final class LogsViewModel: ObservableObject {
 
     private func fetchLogs(on date: Date) async throws -> [LogEntry] {
         let dateKey = Self.dateKeyFormatter.string(from: date)
-        return try await client.functions.invoke(
-            "logs",
-            options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
-        )
+        return try await loggedInvoke("GET /logs?date=\(dateKey)") {
+            try await client.functions.invoke(
+                "logs",
+                options: .init(method: .get, query: [URLQueryItem(name: "date", value: dateKey)])
+            )
+        }
     }
 }
