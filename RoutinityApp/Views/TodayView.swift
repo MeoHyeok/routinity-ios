@@ -29,6 +29,12 @@ struct TodayView: View {
     /// Gates the interactive tour (see OnboardingTour.swift) — spotlights real on-screen elements
     /// instead of a separate slide deck, so it stays accurate to whatever's actually on screen.
     @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    /// Separate from `hasSeenOnboarding` on purpose — that flag flips permanently the moment the
+    /// user dismisses the tour, regardless of whether the default-goal backfill in the same
+    /// `.task` actually succeeded (e.g. a cold-start network hiccup on first launch). Gating the
+    /// retry on this instead means a failed attempt gets retried on the next launch too, and it
+    /// only ever stops once goals are confirmed present.
+    @AppStorage("hasAppliedDefaultGoals") private var hasAppliedDefaultGoals = false
     @State private var tourStepIndex = 0
     @Environment(\.scenePhase) private var scenePhase
 
@@ -196,9 +202,12 @@ struct TodayView: View {
                 // risks tripping the 60-per-minute rate limit on a single screen load.
                 async let streakTask: Void = streakViewModel.loadTrend(days: 14)
                 _ = await (scoreTask, logsTask, streakTask)
-                if !hasSeenOnboarding {
+                if !hasAppliedDefaultGoals {
                     await goalsViewModel.loadGoals()
                     await goalsViewModel.applyDefaultGoalsIfMissing()
+                    if goalsViewModel.hasWakeGoal && goalsViewModel.hasStudyGoal {
+                        hasAppliedDefaultGoals = true
+                    }
                 }
                 hasLoadedOnce = true
                 scheduleNotificationsIfEnabled()

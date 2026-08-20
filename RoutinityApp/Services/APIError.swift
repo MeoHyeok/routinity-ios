@@ -13,8 +13,28 @@ private struct APIErrorBody: Decodable {
 }
 
 func friendlyErrorMessage(_ error: Error) -> String {
+    // `URLError.localizedDescription` is raw, untranslated OS text (e.g. "The Internet connection
+    // appears to be offline.") — this is the single most common real-world failure (wifi/cellular
+    // drops mid-request), so it's worth translating explicitly rather than falling through to the
+    // generic `error.localizedDescription` below, which would otherwise leak English into an
+    // all-Korean UI on every dropped connection.
+    if let urlError = error as? URLError {
+        switch urlError.code {
+        case .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed, .timedOut:
+            return "네트워크 연결을 확인해주세요."
+        default:
+            break
+        }
+    }
     guard case let .httpError(code, data) = error as? FunctionsError else {
         return error.localizedDescription
+    }
+    // The backend's rate-limit body is a fixed, untranslated English string (see
+    // docs/api-contract.md) — every other error body is our own Korean text, but this one would
+    // otherwise leak raw English into an all-Korean UI, and the doc's own guidance for 429 is to
+    // show a "잠시 후 다시 시도" prompt rather than surfacing the body at all.
+    guard code != 429 else {
+        return "요청이 너무 많아요. 잠시 후 다시 시도해주세요."
     }
     guard let body = try? JSONDecoder().decode(APIErrorBody.self, from: data) else {
         return "요청 실패 (\(code))"
