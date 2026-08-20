@@ -549,7 +549,14 @@ struct TodayView: View {
     /// in-progress session with no 취침 yet (unlike the AI 코치 리포트's `time_breakdown`, which the
     /// backend can only fill in once the 기상~취침 window is actually closed).
     private var timelineTimeBreakdown: TimeBreakdown? {
-        let metrics = computeRoutineDayMetrics(from: timelineLogsViewModel.logs)
+        let logs = timelineLogsViewModel.logs
+        // restMinutesSoFar measures through to `now` whenever the session has no 취침 closing it
+        // (see RoutineDayMetrics) — correct for 오늘's own still-open session, but browsing to a
+        // past date with an abandoned/never-closed session would otherwise measure "so far" all
+        // the way to the real current moment, producing an absurdly large 휴식 value for a day
+        // that's long over. Cap at that date's own last log instead, unless it's actually today.
+        let referenceNow = isTimelineDateToday ? Date() : (logs.map(\.timestamp).max() ?? Date())
+        let metrics = computeRoutineDayMetrics(from: logs, now: referenceNow)
         guard metrics.hasLoggedWake else { return nil }
         let meal = metrics.totalMealMinutes
         let study = metrics.totalStudyMinutes
